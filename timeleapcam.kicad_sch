@@ -1,0 +1,2530 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "c09f96f3-c624-4220-8e6c-94e9eb6fb213")
+	(paper "A4")
+	(title_block
+		(title "TIMELEAPCAM")
+		(date "2024-02-28")
+		(rev "Rev1")
+		(company "HNZ")
+		(comment 1 "Licensed under CC-BY-SA V4.0")
+		(comment 2 "(C) 2023 Hiroshi Nakajima <hnakamiru1103@gmail.com>")
+	)
+	(lib_symbols
+		(symbol "Device:FerriteBead"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "FB"
+				(at -3.81 0.635 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "FerriteBead"
+				(at 3.81 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at -1.778 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Ferrite bead"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "L ferrite bead inductor filter"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "Inductor_* L_* *Ferrite*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "FerriteBead_0_1"
+				(polyline
+					(pts
+						(xy 0 -1.27) (xy 0 -1.2192)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 1.27) (xy 0 1.2954)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.7686 0.4064) (xy -1.7018 2.2606) (xy 2.7686 -0.3048) (xy 1.6764 -2.159) (xy -2.7686 0.4064)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "FerriteBead_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 2.54)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 2.54)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Device:L"
+			(pin_numbers hide)
+			(pin_names
+				(offset 1.016) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "L"
+				(at -1.27 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "L"
+				(at 1.905 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Inductor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "inductor choke coil reactor magnetic"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "Choke_* *Coil* Inductor_* L_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "L_0_1"
+				(arc
+					(start 0 -2.54)
+					(mid 0.6323 -1.905)
+					(end 0 -1.27)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 0 -1.27)
+					(mid 0.6323 -0.635)
+					(end 0 0)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 0 0)
+					(mid 0.6323 0.635)
+					(end 0 1.27)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 0 1.27)
+					(mid 0.6323 1.905)
+					(end 0 2.54)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "L_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 1.27)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 1.27)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "power:GND"
+			(power)
+			(pin_numbers hide)
+			(pin_names
+				(offset 0) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at 0 -6.35 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "GND_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GND_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0) hide
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "tbctl:0R"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "R"
+				(at 2.032 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "0R"
+				(at 0 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+				(at -1.778 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Resistor_SMD_0603_1608"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "R res resistor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "R_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "0R_0_1"
+				(rectangle
+					(start -1.016 -2.54)
+					(end 1.016 2.54)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "0R_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 1.27)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 1.27)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "tbctl:USB_C_Receptacle_USB2.0_5077CR"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "J"
+				(at -10.16 19.05 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "USB_C_Receptacle_USB2.0_5077CR"
+				(at 19.05 19.05 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify right)
+				)
+			)
+			(property "Footprint" "tbctl:USB_C_5077CR-16-SMC2-BK-TR"
+				(at 3.81 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.usb.org/sites/default/files/documents/usb_type-c.zip"
+				(at 3.81 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "USB 2.0-only Type-C Receptacle connector"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "usb universal serial bus type-C USB2.0"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "USB*C*Receptacle*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "USB_C_Receptacle_USB2.0_5077CR_0_0"
+				(rectangle
+					(start -0.254 -17.78)
+					(end 0.254 -16.764)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 10.16 -14.986)
+					(end 9.144 -15.494)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 10.16 -12.446)
+					(end 9.144 -12.954)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 10.16 -4.826)
+					(end 9.144 -5.334)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 10.16 -2.286)
+					(end 9.144 -2.794)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 10.16 0.254)
+					(end 9.144 -0.254)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 10.16 2.794)
+					(end 9.144 2.286)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 10.16 7.874)
+					(end 9.144 7.366)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 10.16 10.414)
+					(end 9.144 9.906)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 10.16 15.494)
+					(end 9.144 14.986)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "USB_C_Receptacle_USB2.0_5077CR_0_1"
+				(rectangle
+					(start -10.16 17.78)
+					(end 10.16 -17.78)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(arc
+					(start -8.89 -3.81)
+					(mid -6.985 -5.7067)
+					(end -5.08 -3.81)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -7.62 -3.81)
+					(mid -6.985 -4.4423)
+					(end -6.35 -3.81)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -7.62 -3.81)
+					(mid -6.985 -4.4423)
+					(end -6.35 -3.81)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(rectangle
+					(start -7.62 -3.81)
+					(end -6.35 3.81)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(arc
+					(start -6.35 3.81)
+					(mid -6.985 4.4423)
+					(end -7.62 3.81)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -6.35 3.81)
+					(mid -6.985 4.4423)
+					(end -7.62 3.81)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(arc
+					(start -5.08 3.81)
+					(mid -6.985 5.7067)
+					(end -8.89 3.81)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center -2.54 1.143)
+					(radius 0.635)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(circle
+					(center 0 -5.842)
+					(radius 1.27)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy -8.89 -3.81) (xy -8.89 3.81)
+					)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -5.08 3.81) (xy -5.08 -3.81)
+					)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -5.842) (xy 0 4.318)
+					)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -3.302) (xy -2.54 -0.762) (xy -2.54 0.508)
+					)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -2.032) (xy 2.54 0.508) (xy 2.54 1.778)
+					)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 4.318) (xy 0 6.858) (xy 1.27 4.318) (xy -1.27 4.318)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(rectangle
+					(start 1.905 1.778)
+					(end 3.175 3.048)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+			)
+			(symbol "USB_C_Receptacle_USB2.0_5077CR_1_1"
+				(pin passive line
+					(at 0 -22.86 90)
+					(length 5.08)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "A1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -22.86 90)
+					(length 5.08) hide
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "A12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 15.24 15.24 180)
+					(length 5.08)
+					(name "VBUS"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "A4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at 15.24 10.16 180)
+					(length 5.08)
+					(name "CC1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "A5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at 15.24 -2.54 180)
+					(length 5.08)
+					(name "D+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "A6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at 15.24 2.54 180)
+					(length 5.08)
+					(name "D-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "A7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at 15.24 -12.7 180)
+					(length 5.08)
+					(name "SBU1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "A8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 15.24 15.24 180)
+					(length 5.08) hide
+					(name "VBUS"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "A9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -22.86 90)
+					(length 5.08) hide
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "B1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -22.86 90)
+					(length 5.08) hide
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "B12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 15.24 15.24 180)
+					(length 5.08) hide
+					(name "VBUS"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "B4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at 15.24 7.62 180)
+					(length 5.08)
+					(name "CC2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "B5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at 15.24 -5.08 180)
+					(length 5.08)
+					(name "D+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "B6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at 15.24 0 180)
+					(length 5.08)
+					(name "D-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "B7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at 15.24 -15.24 180)
+					(length 5.08)
+					(name "SBU2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "B8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 15.24 15.24 180)
+					(length 5.08) hide
+					(name "VBUS"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "B9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -7.62 -22.86 90)
+					(length 5.08)
+					(name "SHIELD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "S1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+	)
+	(junction
+		(at 53.34 99.06)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0bca9002-3df1-4043-a8c4-3f9b18f2d0c5")
+	)
+	(junction
+		(at 53.34 104.14)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c55093bb-eed4-4aa0-9a55-7512dce7c2bc")
+	)
+	(junction
+		(at 38.1 121.92)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "eb70751e-973d-4837-8208-6d1e94ea0b59")
+	)
+	(no_connect
+		(at 53.34 111.76)
+		(uuid "0155b2ec-fb62-4432-8852-9a71de2a7cfe")
+	)
+	(no_connect
+		(at 53.34 114.3)
+		(uuid "24eba3bf-1687-4481-9813-10b4fda5e06e")
+	)
+	(wire
+		(pts
+			(xy 53.34 104.14) (xy 99.06 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0405d21e-b682-433e-ba9c-6cebe21eaac8")
+	)
+	(wire
+		(pts
+			(xy 55.88 91.44) (xy 55.88 119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "18a7a3a5-f5dd-4e91-adb6-ca35deb09169")
+	)
+	(wire
+		(pts
+			(xy 99.06 76.2) (xy 88.9 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1a4a6a3f-0f74-4e8b-a3ae-8fbb52c8f8d3")
+	)
+	(wire
+		(pts
+			(xy 53.34 99.06) (xy 99.06 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "28c8cc0d-4668-434e-9eba-9994992cc5e7")
+	)
+	(wire
+		(pts
+			(xy 74.93 55.88) (xy 99.06 55.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "37b55d15-8bca-4e06-a47e-9ee09954da7b")
+	)
+	(wire
+		(pts
+			(xy 166.37 69.85) (xy 166.37 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "479c2480-4d26-45e6-8d25-1e6308cf0b24")
+	)
+	(wire
+		(pts
+			(xy 88.9 76.2) (xy 88.9 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "613af438-2dcc-4ac9-b07d-f778b111e723")
+	)
+	(wire
+		(pts
+			(xy 74.93 64.77) (xy 74.93 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "685a41fa-ccf2-4964-ae5d-87eade910cdd")
+	)
+	(wire
+		(pts
+			(xy 72.39 83.82) (xy 88.9 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6e63df8a-be72-45b0-8d9f-033d6c1cae63")
+	)
+	(wire
+		(pts
+			(xy 74.93 57.15) (xy 74.93 55.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7310f97e-0973-43f3-98e3-51bf0d67caea")
+	)
+	(wire
+		(pts
+			(xy 30.48 121.92) (xy 38.1 121.92)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "749c021f-fc0f-4ede-ae94-990f5f31f79f")
+	)
+	(wire
+		(pts
+			(xy 62.23 88.9) (xy 62.23 119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "80f7c200-bc87-4470-8bea-17be01444214")
+	)
+	(wire
+		(pts
+			(xy 53.34 96.52) (xy 53.34 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "86ce1575-b685-4e9e-82a4-31b99aeac5f1")
+	)
+	(wire
+		(pts
+			(xy 53.34 101.6) (xy 53.34 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8f60e1db-f44b-41a6-9353-abc6cf586907")
+	)
+	(wire
+		(pts
+			(xy 166.37 99.06) (xy 158.75 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9e4b5e9a-9bc7-42bd-b892-799de825467b")
+	)
+	(wire
+		(pts
+			(xy 53.34 83.82) (xy 64.77 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b7f3acc6-d141-4af5-959f-c7c998fbe512")
+	)
+	(wire
+		(pts
+			(xy 158.75 69.85) (xy 166.37 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc5b6c79-24b1-4282-99b5-e38f3f2c9483")
+	)
+	(wire
+		(pts
+			(xy 74.93 67.31) (xy 99.06 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eef95c64-106a-4177-9aa5-cc7a25b5f9cd")
+	)
+	(wire
+		(pts
+			(xy 53.34 91.44) (xy 55.88 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f3320bf9-ba88-47f5-bb80-de5a783d8d8a")
+	)
+	(wire
+		(pts
+			(xy 53.34 88.9) (xy 62.23 88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f68da8e4-67cb-4787-97a8-bb851563a29a")
+	)
+	(wire
+		(pts
+			(xy 38.1 124.46) (xy 38.1 121.92)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fa87009c-9e16-476a-8541-754cfd92db85")
+	)
+	(label "USBDM"
+		(at 69.85 99.06 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "054903a8-06ea-40bd-bb6f-74aebc9e2141")
+	)
+	(label "USBDP"
+		(at 69.85 104.14 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "07693a48-be2b-4b2d-8e6d-e710162d3ba0")
+	)
+	(label "USBVDD"
+		(at 85.09 83.82 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "63764334-9126-4fc2-84e5-e2943d556bae")
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 55.88 127 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0244c44e-c1d8-4d13-8093-516d97e87c07")
+		(property "Reference" "#PWR0306"
+			(at 55.88 133.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 55.88 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 55.88 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 55.88 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 55.88 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "4c70ece2-4c0c-4ee2-8d0b-1f533224b183")
+		)
+		(instances
+			(project "ESP32C3"
+				(path "/009eae78-518f-491b-bf83-ac6dccccbbfb"
+					(reference "#PWR0306")
+					(unit 1)
+				)
+			)
+			(project "currentlogger"
+				(path "/00c653f5-dee2-4196-8cf8-4540d26cb9b9"
+					(reference "#PWR0137")
+					(unit 1)
+				)
+			)
+			(project "wakepc"
+				(path "/14eae45e-b73d-4508-99d4-57ccbc6ca67c"
+					(reference "#PWR0104")
+					(unit 1)
+				)
+			)
+			(project "heatpanelcontroller"
+				(path "/58e88479-720b-4b9e-82a0-586074a9c30b/556e5cf8-d98c-4c3b-9c75-5c1844f1715f"
+					(reference "#PWR0306")
+					(unit 1)
+				)
+				(path "/58e88479-720b-4b9e-82a0-586074a9c30b/a8619bfa-3262-424d-b704-f76f57f6711f"
+					(reference "#PWR0305")
+					(unit 1)
+				)
+			)
+			(project "templogger"
+				(path "/792d1191-f80c-48d2-950c-0713cdccb9e7"
+					(reference "#PWR0120")
+					(unit 1)
+				)
+			)
+			(project "timeleapcam"
+				(path "/c09f96f3-c624-4220-8e6c-94e9eb6fb213"
+					(reference "#PWR0102")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 62.23 127 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0bf1a9da-f199-4326-81b1-5e105bd93bb4")
+		(property "Reference" "#PWR0306"
+			(at 62.23 133.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 62.23 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 62.23 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 62.23 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 62.23 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "787a3279-d8d0-43ef-840c-3164c02ab513")
+		)
+		(instances
+			(project "ESP32C3"
+				(path "/009eae78-518f-491b-bf83-ac6dccccbbfb"
+					(reference "#PWR0306")
+					(unit 1)
+				)
+			)
+			(project "currentlogger"
+				(path "/00c653f5-dee2-4196-8cf8-4540d26cb9b9"
+					(reference "#PWR0138")
+					(unit 1)
+				)
+			)
+			(project "wakepc"
+				(path "/14eae45e-b73d-4508-99d4-57ccbc6ca67c"
+					(reference "#PWR0106")
+					(unit 1)
+				)
+			)
+			(project "heatpanelcontroller"
+				(path "/58e88479-720b-4b9e-82a0-586074a9c30b/556e5cf8-d98c-4c3b-9c75-5c1844f1715f"
+					(reference "#PWR0306")
+					(unit 1)
+				)
+				(path "/58e88479-720b-4b9e-82a0-586074a9c30b/a8619bfa-3262-424d-b704-f76f57f6711f"
+					(reference "#PWR0305")
+					(unit 1)
+				)
+			)
+			(project "templogger"
+				(path "/792d1191-f80c-48d2-950c-0713cdccb9e7"
+					(reference "#PWR0120")
+					(unit 1)
+				)
+			)
+			(project "timeleapcam"
+				(path "/c09f96f3-c624-4220-8e6c-94e9eb6fb213"
+					(reference "#PWR0103")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 38.1 124.46 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "1113539d-8ff3-4ed8-9129-71d5c8bd6abc")
+		(property "Reference" "#PWR0307"
+			(at 38.1 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 38.1 128.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 38.1 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "debd6e88-ce54-4d1c-b2d6-7dd3a40e6a92")
+		)
+		(instances
+			(project "ESP32C3"
+				(path "/009eae78-518f-491b-bf83-ac6dccccbbfb"
+					(reference "#PWR0307")
+					(unit 1)
+				)
+			)
+			(project "currentlogger"
+				(path "/00c653f5-dee2-4196-8cf8-4540d26cb9b9"
+					(reference "#PWR0102")
+					(unit 1)
+				)
+			)
+			(project "wakepc"
+				(path "/14eae45e-b73d-4508-99d4-57ccbc6ca67c"
+					(reference "#PWR0102")
+					(unit 1)
+				)
+			)
+			(project "heatpanelcontroller"
+				(path "/58e88479-720b-4b9e-82a0-586074a9c30b/556e5cf8-d98c-4c3b-9c75-5c1844f1715f"
+					(reference "#PWR0307")
+					(unit 1)
+				)
+				(path "/58e88479-720b-4b9e-82a0-586074a9c30b/a8619bfa-3262-424d-b704-f76f57f6711f"
+					(reference "#PWR0306")
+					(unit 1)
+				)
+			)
+			(project "templogger"
+				(path "/792d1191-f80c-48d2-950c-0713cdccb9e7"
+					(reference "#PWR0122")
+					(unit 1)
+				)
+			)
+			(project "timeleapcam"
+				(path "/c09f96f3-c624-4220-8e6c-94e9eb6fb213"
+					(reference "#PWR0101")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "tbctl:0R")
+		(at 62.23 123.19 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "66eb8a4a-2e74-4489-af48-f03fb8269701")
+		(property "Reference" "R124"
+			(at 64.77 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "5.1K"
+			(at 64.77 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 64.008 123.19 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 62.23 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 62.23 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "distributor" "https://www.digikey.com/en/products/detail/yageo/RC0603JR-075K1L/726796"
+			(at 62.23 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "digikey" "311-5.1KGRCT-ND"
+			(at 62.23 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "25d7f680-8ff2-44f4-8540-712f87b9550d")
+		)
+		(pin "2"
+			(uuid "460be1fe-1353-428c-8ee6-d5c1bd763770")
+		)
+		(instances
+			(project "currentlogger"
+				(path "/00c653f5-dee2-4196-8cf8-4540d26cb9b9"
+					(reference "R124")
+					(unit 1)
+				)
+			)
+			(project "i2cmaster"
+				(path "/0debb613-b3d4-412c-9f89-703644707ab1"
+					(reference "R109")
+					(unit 1)
+				)
+			)
+			(project "wakepc"
+				(path "/14eae45e-b73d-4508-99d4-57ccbc6ca67c"
+					(reference "R104")
+					(unit 1)
+				)
+			)
+			(project "i2cadopter"
+				(path "/aeed9f0d-3d4f-4902-967c-ef7766b83141"
+					(reference "R103")
+					(unit 1)
+				)
+			)
+			(project "timeleapcam"
+				(path "/c09f96f3-c624-4220-8e6c-94e9eb6fb213"
+					(reference "R102")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:L")
+		(at 74.93 60.96 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "9175d400-553c-4d9d-bc20-52bcce6b6681")
+		(property "Reference" "L101"
+			(at 76.2 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "WR483265-15F5-G"
+			(at 76.2 62.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "tbctl:PinHole_1x02_P4.5mm_Vertical"
+			(at 74.93 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 74.93 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 74.93 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "digikey" "445-16090-ND"
+			(at 74.93 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "distributor" "https://www.digikey.com/en/products/detail/tdk-corporation/WR483265-15F5-G/4702656"
+			(at 74.93 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a2ef0745-80f4-42e5-aaab-3029b210c658")
+		)
+		(pin "2"
+			(uuid "6f666422-ff08-4a12-b502-586c71378fdb")
+		)
+		(instances
+			(project "qi-receiver"
+				(path "/24ee6726-da0b-4752-8fa7-d33b814f3632"
+					(reference "L101")
+					(unit 1)
+				)
+				(path "/24ee6726-da0b-4752-8fa7-d33b814f3632/062c78dc-cf2a-450c-ba2a-3bf16db1a8f6"
+					(reference "L201")
+					(unit 1)
+				)
+			)
+			(project "timeleapcam"
+				(path "/c09f96f3-c624-4220-8e6c-94e9eb6fb213"
+					(reference "L101")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:FerriteBead")
+		(at 68.58 83.82 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "ac4205d2-99ad-4c0b-85d7-27b3dc02eb5e")
+		(property "Reference" "FB301"
+			(at 68.5292 76.2 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "MH2029-601Y"
+			(at 68.5292 78.74 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Inductor_SMD:L_0805_2012Metric"
+			(at 68.58 85.598 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 68.58 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 68.58 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "distributor" "https://www.digikey.com/en/products/detail/bourns-inc/MH2029-601Y/3741762"
+			(at 68.58 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "digikey" "MH2029-601YCT-ND"
+			(at 68.58 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "33d61681-73b6-45df-8a34-067ffaf37bbc")
+		)
+		(pin "2"
+			(uuid "04fcd873-4584-4615-a4f1-0a0bb64c9e18")
+		)
+		(instances
+			(project "ESP32C3"
+				(path "/009eae78-518f-491b-bf83-ac6dccccbbfb"
+					(reference "FB301")
+					(unit 1)
+				)
+			)
+			(project "currentlogger"
+				(path "/00c653f5-dee2-4196-8cf8-4540d26cb9b9"
+					(reference "FB101")
+					(unit 1)
+				)
+			)
+			(project "wakepc"
+				(path "/14eae45e-b73d-4508-99d4-57ccbc6ca67c"
+					(reference "FB101")
+					(unit 1)
+				)
+			)
+			(project "heatpanelcontroller"
+				(path "/58e88479-720b-4b9e-82a0-586074a9c30b/556e5cf8-d98c-4c3b-9c75-5c1844f1715f"
+					(reference "FB301")
+					(unit 1)
+				)
+				(path "/58e88479-720b-4b9e-82a0-586074a9c30b/a8619bfa-3262-424d-b704-f76f57f6711f"
+					(reference "FB301")
+					(unit 1)
+				)
+			)
+			(project "templogger"
+				(path "/792d1191-f80c-48d2-950c-0713cdccb9e7"
+					(reference "FB101")
+					(unit 1)
+				)
+			)
+			(project "timeleapcam"
+				(path "/c09f96f3-c624-4220-8e6c-94e9eb6fb213"
+					(reference "FB101")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "tbctl:USB_C_Receptacle_USB2.0_5077CR")
+		(at 38.1 99.06 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "c9eb16cb-dec3-4218-8b94-5b261171f885")
+		(property "Reference" "J101"
+			(at 38.1 76.2 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "USB4105-GF-A"
+			(at 38.1 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "tbctl:USB_C_5077CR-16-SMC2-BK-TR"
+			(at 41.91 99.06 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.usb.org/sites/default/files/documents/usb_type-c.zip"
+			(at 41.91 99.06 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 38.1 99.06 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "distributor" "https://www.digikey.com/en/products/detail/gct/USB4105-GF-A/11198441"
+			(at 38.1 99.06 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "digikey" "2073-USB4105-GF-ACT-ND"
+			(at 38.1 99.06 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "A1"
+			(uuid "c745d98d-daa5-45c9-a6e2-31e10fedda55")
+		)
+		(pin "A12"
+			(uuid "791318d3-ac6c-44d8-8df3-d241a608cbbd")
+		)
+		(pin "A4"
+			(uuid "47002e42-f2b9-47ad-aa34-69de56563853")
+		)
+		(pin "A5"
+			(uuid "a0c58f57-f6fa-44b8-aeb3-1a0357f00d0c")
+		)
+		(pin "A6"
+			(uuid "3a102b8c-bf8b-4fea-82e5-3b9e7c2bb418")
+		)
+		(pin "A7"
+			(uuid "8a342ad9-c117-4ad0-af67-85cc45eb95fc")
+		)
+		(pin "A8"
+			(uuid "51492a31-1817-4cd3-bb6d-319c28bfb48b")
+		)
+		(pin "A9"
+			(uuid "95072b3b-f743-414d-9053-2137b96c61d4")
+		)
+		(pin "B1"
+			(uuid "7413b5e8-3bf3-489b-8496-855b58343613")
+		)
+		(pin "B12"
+			(uuid "d618afbd-c4db-44db-9a82-5cdf2d649464")
+		)
+		(pin "B4"
+			(uuid "e67f0939-32f1-4e67-b751-700bbbd0c974")
+		)
+		(pin "B5"
+			(uuid "dc68e152-1abd-4698-b5ba-ee9b7e6c79ff")
+		)
+		(pin "B6"
+			(uuid "f9232e68-7710-408e-96ea-f06fbd87e6a6")
+		)
+		(pin "B7"
+			(uuid "95ec6885-42fe-41f9-aee2-9fbbedf4b1fc")
+		)
+		(pin "B8"
+			(uuid "1b67ab5d-c3f4-435c-b4e4-15edfe943054")
+		)
+		(pin "B9"
+			(uuid "1baa6456-5bfb-43e3-a540-f760ea45b66a")
+		)
+		(pin "S1"
+			(uuid "8dda302d-5019-4866-8bbe-2ba7511184e8")
+		)
+		(instances
+			(project "currentlogger"
+				(path "/00c653f5-dee2-4196-8cf8-4540d26cb9b9"
+					(reference "J101")
+					(unit 1)
+				)
+			)
+			(project "wakepc"
+				(path "/14eae45e-b73d-4508-99d4-57ccbc6ca67c"
+					(reference "J101")
+					(unit 1)
+				)
+			)
+			(project "timeleapcam"
+				(path "/c09f96f3-c624-4220-8e6c-94e9eb6fb213"
+					(reference "J101")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "tbctl:0R")
+		(at 55.88 123.19 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "f443fb12-2a1e-4451-8190-c9cc898e3139")
+		(property "Reference" "R123"
+			(at 48.26 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "5.1K"
+			(at 48.26 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 57.658 123.19 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 55.88 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 55.88 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "distributor" "https://www.digikey.com/en/products/detail/yageo/RC0603JR-075K1L/726796"
+			(at 55.88 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "digikey" "311-5.1KGRCT-ND"
+			(at 55.88 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a1f8d8da-7991-46dc-b0c3-d4a674e72be3")
+		)
+		(pin "2"
+			(uuid "d4e85b2d-f9b6-4449-b9dd-04a6ef4fd120")
+		)
+		(instances
+			(project "currentlogger"
+				(path "/00c653f5-dee2-4196-8cf8-4540d26cb9b9"
+					(reference "R123")
+					(unit 1)
+				)
+			)
+			(project "i2cmaster"
+				(path "/0debb613-b3d4-412c-9f89-703644707ab1"
+					(reference "R108")
+					(unit 1)
+				)
+			)
+			(project "wakepc"
+				(path "/14eae45e-b73d-4508-99d4-57ccbc6ca67c"
+					(reference "R103")
+					(unit 1)
+				)
+			)
+			(project "i2cadopter"
+				(path "/aeed9f0d-3d4f-4902-967c-ef7766b83141"
+					(reference "R104")
+					(unit 1)
+				)
+			)
+			(project "timeleapcam"
+				(path "/c09f96f3-c624-4220-8e6c-94e9eb6fb213"
+					(reference "R101")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(sheet
+		(at 99.06 92.71)
+		(size 59.69 31.75)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "4f602d80-e634-44b5-ac7f-811f66a2dec5")
+		(property "Sheetname" "esp32-cam-emmc"
+			(at 99.06 91.9984 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "esp32-cam-emmc.kicad_sch"
+			(at 99.06 125.0446 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "USBDP" bidirectional
+			(at 99.06 104.14 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "22b2b366-42c9-4487-a3c8-4d30c14c5c84")
+		)
+		(pin "USBDM" bidirectional
+			(at 99.06 99.06 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "65eabea9-4c22-4786-949a-56312da5887f")
+		)
+		(pin "VOLDIV" input
+			(at 158.75 99.06 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "efb3ad44-0ff7-46f4-b21c-84bb991a1395")
+		)
+		(instances
+			(project "timeleapcam"
+				(path "/c09f96f3-c624-4220-8e6c-94e9eb6fb213"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 99.06 49.53)
+		(size 59.69 31.75)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "7fe6a478-fcff-4291-8630-26586a066435")
+		(property "Sheetname" "qi-reveiver"
+			(at 99.06 48.8184 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "qi-receiver.kicad_sch"
+			(at 99.06 81.8646 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "AC2" input
+			(at 99.06 67.31 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "45865557-7f38-40fd-8f95-8aa9483adb3f")
+		)
+		(pin "AC1" input
+			(at 99.06 55.88 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "61b19b89-25ce-4ebc-beec-a622130a33b2")
+		)
+		(pin "USBVDD" input
+			(at 99.06 76.2 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "bc56a74b-cbb3-4188-83a8-57373596dcdf")
+		)
+		(pin "VOUT" output
+			(at 158.75 69.85 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "230eaa26-5903-4f48-88ff-e382daba054d")
+		)
+		(instances
+			(project "timeleapcam"
+				(path "/c09f96f3-c624-4220-8e6c-94e9eb6fb213"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+)
