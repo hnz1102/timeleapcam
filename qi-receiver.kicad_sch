@@ -6257,7 +6257,7 @@
 				(hide yes)
 			)
 		)
-		(property "digikey" "311-100KGRCT-ND"
+		(property "digikey" "13-RC0603JR-1010KLCT-ND"
 			(at 238.76 110.49 0)
 			(effects
 				(font
@@ -7615,7 +7615,7 @@
 				)
 			)
 		)
-		(property "Value" "LD1117S33TR_SOT223"
+		(property "Value" "LDL1117S33TR_SOT223"
 			(at 139.7 33.02 0)
 			(effects
 				(font
