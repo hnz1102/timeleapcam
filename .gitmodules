@@ -1,0 +1,3 @@
+[submodule "esp-camera-rs"]
+    path = code
+    url = https://github.com/hnz1102/esp-camera-rs.git
