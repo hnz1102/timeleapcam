@@ -1,0 +1,12 @@
+partition_table = "partitions.csv"
+
+[connection]
+
+[[usb_device]]
+vid = "303a"
+pid = "1001"
+
+[flash]
+mode = "dio"  # It must be "dio" because GPIO9, GPIO10 are used for eMMC and Camera.
+size = "16MB"
+frequency = "40MHz"
