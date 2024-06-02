@@ -9,6 +9,7 @@ use std::path::Path;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
+use chrono::{DateTime, Local, FixedOffset};
 use url;
 use serde_json;
 
@@ -59,6 +60,10 @@ pub struct ControlServerInfo {
     pub query_openai: bool,
     pub query_prompt: String,
     pub openai_model: String,
+    pub rssi: i32,
+    pub battery_voltage: f32,
+    pub current_capture_id: u32,
+    pub last_capture_date_time: SystemTime,
 }
 
 impl ControlServerInfo {
@@ -84,6 +89,10 @@ impl ControlServerInfo {
             query_openai: false,
             query_prompt: String::from(""),
             openai_model: String::from(""),
+            rssi: 0,
+            battery_voltage: 0.0,
+            current_capture_id: 0,
+            last_capture_date_time: SystemTime::now(),
         }
     }    
 }
@@ -460,12 +469,23 @@ impl ControlServer {
             let response = request.into_ok_response();
             let server_info = server_info_status.clone();
             let server_info = server_info.lock().unwrap();
-            let status = if server_info.capture_started {
-                "ON"
-            } else {
-                "OFF"
-            };
-            response?.write_all(status.as_bytes())?;
+            // state is capture_started status and rssi, battery_voltage values send as json format
+            let fixed_offset = FixedOffset::east_opt(server_info.timezone * 3600).unwrap();
+            let last_capture_date_time_utc: DateTime<Local> = server_info.last_capture_date_time.into();
+            // adust timezone
+            let last_capture_date_time = DateTime::<Local>::from_naive_utc_and_offset(last_capture_date_time_utc.naive_utc(), fixed_offset);
+            let state_json = format!("{{\"state\": \"{}\", \"rssi\": {}, \"battery_voltage\": {:.2}, \"capture_id\": {}, \"last_capture_date_time\": \"{}\"}}",
+                                     if server_info.capture_started {
+                                         "start"
+                                     } else {
+                                         "stop"
+                                     },
+                                     server_info.rssi,
+                                     server_info.battery_voltage,
+                                     server_info.current_capture_id,
+                                     last_capture_date_time.format("%Y-%m-%d %H:%M:%S"),
+                                     );
+            response?.write_all(state_json.as_bytes())?;
             Ok::<(), EspIOError>(())
         }).unwrap();
 
@@ -659,6 +679,26 @@ impl ControlServer {
         let mut server_info = self.server_info.lock().unwrap();
         server_info.capture_started = capture_started;
     }
+
+    pub fn set_current_rssi(&self, rssi: i32) {
+        let mut server_info = self.server_info.lock().unwrap();
+        server_info.rssi = rssi;
+    }
+
+    pub fn set_current_battery_voltage(&self, battery_voltage: f32) {
+        let mut server_info = self.server_info.lock().unwrap();
+        server_info.battery_voltage = battery_voltage;
+    }
+
+    pub fn set_current_capture_id(&self, capture_id: u32) {
+        let mut server_info = self.server_info.lock().unwrap();
+        server_info.current_capture_id = capture_id;
+    }
+
+    pub fn set_last_capture_date_time(&self, last_capture_date_time: SystemTime) {
+        let mut server_info = self.server_info.lock().unwrap();
+        server_info.last_capture_date_time = last_capture_date_time;
+    }
 }
 
 fn index_html(status: bool) -> String {
@@ -690,6 +730,11 @@ fn index_html(status: bool) -> String {
 <h4>Start/Stop Capture</h4>
 <label class="switch"><input type="checkbox" onchange="toggleCheckbox(this)" id="captureStart" {} >
 <span class="slider"></span></label>
+
+<h5>Battery Voltage <span id="batteryVoltage"><span>V</h5>
+<h5>WiFi RSSI <span id="wifiRSSI"><span>dBm</h5>
+<h5>Capture ID <span id="captureID"><span></h5>
+<h5>Last Capture Date & Time <span id="lastCaptureDateTime"><span></h5>
 
 <h4>Camera Resolution</h4>
 <select id="resolutionSelect" onchange="setResolution(this)">
@@ -778,7 +823,7 @@ fn index_html(status: bool) -> String {
 <h5>show frames</h5>
 <input type="number" id="fromframe" value="0">
 -
-<input type="number" id="toframe" value="100">
+<input type="number" id="toframe" value="10">
 <button onclick="drawImage(document.getElementById('showTrackidSelect').value, document.getElementById('fromframe').value, document.getElementById('toframe').value)">Show</button>
 <br>
 <canvas id="canvas" width="640" height="480"></canvas>
@@ -976,16 +1021,22 @@ setInterval(function ( ) {{
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {{
         if (this.readyState == 4 && this.status == 200) {{
-            var inputChecked;
+            var status = JSON.parse(this.responseText);
             var camState = "Connected";
-            if( this.responseText == "ON"){{ 
-                inputChecked = true;
+            if( status.state == "start"){{ 
+                document.getElementById("captureStart").checked = true;
             }}
             else {{ 
-                inputChecked = false;
+                document.getElementById("captureStart").checked = false;
             }}
-            document.getElementById("captureStart").checked = inputChecked;
             document.getElementById("camState").innerHTML = camState;
+            // read battery voltage and wifi rssi
+            var batteryVoltage = status.battery_voltage;
+            var wifiRSSI = status.rssi;
+            document.getElementById("batteryVoltage").innerHTML = batteryVoltage+"V";
+            document.getElementById("wifiRSSI").innerHTML = wifiRSSI+"dBm";
+            document.getElementById("captureID").innerHTML = status.capture_id;
+            document.getElementById("lastCaptureDateTime").innerHTML = status.last_capture_date_time;
         }}
         else if (this.readyState == 4 && this.status == 0) {{
             document.getElementById("camState").innerHTML = "Not Connected";

@@ -239,15 +239,13 @@ fn main() -> anyhow::Result<()> {
             let ntp = EspSntp::new(&sntp_conf).unwrap();
 
             // NTP Sync
-            let now = SystemTime::now();
-            if now.duration_since(UNIX_EPOCH).unwrap().as_millis() < 1700000000 {
-                info!("NTP Sync Start..");
-                // No wait for sync
-                while ntp.get_sync_status() != SyncStatus::Completed {
-                    thread::sleep(Duration::from_millis(10));
-                }
-                info!("NTP Sync Completed");
-            } 
+            // let now = SystemTime::now();
+            // if now.duration_since(UNIX_EPOCH).unwrap().as_millis() < 1700000000 {
+            info!("NTP Sync Start..");
+            // wait for sync
+            while ntp.get_sync_status() != SyncStatus::Completed {
+                thread::sleep(Duration::from_millis(10));
+            }
             let now = SystemTime::now();
             let dt_now : DateTime<Utc> = now.into();
             let formatted = format!("{}", dt_now.format("%Y-%m-%d %H:%M:%S"));
@@ -332,8 +330,12 @@ fn main() -> anyhow::Result<()> {
             if rssi == 0 {
                 wifi_reconnect(&mut wifi_dev.as_mut().unwrap());
             }
-
+            server.as_mut().unwrap().set_current_rssi(rssi);
+            // read battery voltage
+            let battery_voltage : f32 =  adc.read(&mut adc_pin).unwrap() as f32 * 2.0 / 1000.0;
+            server.as_mut().unwrap().set_current_battery_voltage(battery_voltage);
             server_info = server.as_mut().unwrap().get_server_info().clone();
+
             // check save config
             if server_info.need_to_save {
                 server_info.need_to_save = false;
@@ -420,6 +422,8 @@ fn main() -> anyhow::Result<()> {
             let capture_info = capture.get_capture_info();
             if capture_info.status {
                 info!("Write done {}: width:{} height:{} image_size:{}", capture_count, capture_info.width, capture_info.height, capture_info.size);
+                server.as_mut().unwrap().set_current_capture_id(capture_count);
+                server.as_mut().unwrap().set_last_capture_date_time(SystemTime::now());
                 capture_count += 1;
             }
 
