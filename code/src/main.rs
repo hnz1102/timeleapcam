@@ -279,20 +279,20 @@ fn main() -> anyhow::Result<()> {
     let cam = Camera::new(
         peripherals.pins.gpio43,    // PWDN
         peripherals.pins.gpio0,     // RESET
-        peripherals.pins.gpio48,    // XCLK
-        peripherals.pins.gpio42,    // SIOD
-        peripherals.pins.gpio41,    // SIOC
-        peripherals.pins.gpio11,    // Y2
-        peripherals.pins.gpio18,    // Y3
-        peripherals.pins.gpio17,    // Y4
-        peripherals.pins.gpio10,    // Y5
-        peripherals.pins.gpio12,    // Y6
-        peripherals.pins.gpio14,    // Y7
-        peripherals.pins.gpio47,    // Y8
-        peripherals.pins.gpio38,    // Y9
-        peripherals.pins.gpio40,    // VSYNC
-        peripherals.pins.gpio39,    // HREF
-        peripherals.pins.gpio13,    // PCLK
+        peripherals.pins.gpio21,    // XCLK
+        peripherals.pins.gpio39,    // SIOD
+        peripherals.pins.gpio38,    // SIOC
+        peripherals.pins.gpio10,    // Y2
+        peripherals.pins.gpio46,    // Y3
+        peripherals.pins.gpio3,     // Y4
+        peripherals.pins.gpio9,     // Y5
+        peripherals.pins.gpio11,    // Y6
+        peripherals.pins.gpio13,    // Y7
+        peripherals.pins.gpio14,    // Y8
+        peripherals.pins.gpio47,    // Y9
+        peripherals.pins.gpio45,    // VSYNC
+        peripherals.pins.gpio48,    // HREF
+        peripherals.pins.gpio12,    // PCLK
         5000000,                    // XCLK frequency
         6,                         // JPEG quality
         1,                         // Frame buffer count
