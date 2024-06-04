@@ -1,6 +1,5 @@
 use config::{File, FileFormat, Config as NvsConfig};
 use std::collections::HashMap;
-use log::info;
 
 #[toml_cfg::toml_config]
 pub struct Config {
@@ -109,7 +108,6 @@ impl ConfigData {
         .add_source(File::from_str(&nvs_value.unwrap(), FileFormat::Toml))
         .build()?;
         let settings_map = settings.try_deserialize::<HashMap<String, String>>()?;
-        info!("settings_map: {:?}", settings_map);
         self.wifi_ssid = settings_map.get(MENU_SSID.1).ok_or(anyhow::Error::msg("wifi_ssid not found"))?.to_string();
         self.wifi_psk = settings_map.get(MENU_PSK.1).ok_or(anyhow::Error::msg("wifi_psk not found"))?.to_string();
         self.timezone_offset = settings_map.get(MENU_TIMEZONE.1).ok_or(anyhow::Error::msg("timezone_offset not found"))?.parse::<i32>()?;

@@ -474,6 +474,7 @@ impl ControlServer {
             let last_capture_date_time_utc: DateTime<Local> = server_info.last_capture_date_time.into();
             // adust timezone
             let last_capture_date_time = DateTime::<Local>::from_naive_utc_and_offset(last_capture_date_time_utc.naive_utc(), fixed_offset);
+            let lcdt_str = last_capture_date_time.format("%Y-%m-%d %H:%M:%S").to_string();
             let state_json = format!("{{\"state\": \"{}\", \"rssi\": {}, \"battery_voltage\": {:.2}, \"capture_id\": {}, \"last_capture_date_time\": \"{}\"}}",
                                      if server_info.capture_started {
                                          "start"
@@ -483,7 +484,7 @@ impl ControlServer {
                                      server_info.rssi,
                                      server_info.battery_voltage,
                                      server_info.current_capture_id,
-                                     last_capture_date_time.format("%Y-%m-%d %H:%M:%S"),
+                                     if server_info.last_capture_date_time == SystemTime::UNIX_EPOCH { "N/A" } else { &lcdt_str },
                                      );
             response?.write_all(state_json.as_bytes())?;
             Ok::<(), EspIOError>(())
@@ -688,16 +689,6 @@ impl ControlServer {
     pub fn set_current_battery_voltage(&self, battery_voltage: f32) {
         let mut server_info = self.server_info.lock().unwrap();
         server_info.battery_voltage = battery_voltage;
-    }
-
-    pub fn set_current_capture_id(&self, capture_id: u32) {
-        let mut server_info = self.server_info.lock().unwrap();
-        server_info.current_capture_id = capture_id;
-    }
-
-    pub fn set_last_capture_date_time(&self, last_capture_date_time: SystemTime) {
-        let mut server_info = self.server_info.lock().unwrap();
-        server_info.last_capture_date_time = last_capture_date_time;
     }
 }
 

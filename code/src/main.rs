@@ -60,6 +60,9 @@ static mut CURRENT_RESOLUTION: u32 = 0;
 #[link_section = ".rtc.data"]
 static mut CURRENT_TRACK_ID: u32 = 0;
 
+#[link_section = ".rtc.data"]
+static mut LAST_CAPTURE_TIME: u64 = 0;
+
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
@@ -130,7 +133,7 @@ fn main() -> anyhow::Result<()> {
         thread::sleep(Duration::from_millis(1000));
     }
     else {
-        info!("NVS config found {:?}", nvs_value);
+        // info!("NVS config found {:?}", nvs_value);
         match config_data.load_config(nvs_value) {
             Ok(_) => { info!("Config load success"); },
             Err(ref e) => { 
@@ -154,7 +157,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut server_info = server::ControlServerInfo::new();
     // config_data
-    info!("Start config_data: {:?}", config_data);
+    // info!("Start config_data: {:?}", config_data);
     info!("Auto Capture: {:?}", unsafe { DEEP_SLEEP_AUTO_CAPTURE } );
     info!("Image Count ID: {:?}", unsafe { IMAGE_COUNT_ID });
 
@@ -180,6 +183,7 @@ fn main() -> anyhow::Result<()> {
         current_resolution = server_info.resolution;
 
     }
+    server_info.last_capture_date_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_CAPTURE_TIME });
     server_info.query_prompt = config_data.query_prompt.clone();
     server_info.query_openai = config_data.query_openai;
     server_info.openai_model = config_data.model.clone();
@@ -422,9 +426,9 @@ fn main() -> anyhow::Result<()> {
             let capture_info = capture.get_capture_info();
             if capture_info.status {
                 info!("Write done {}: width:{} height:{} image_size:{}", capture_count, capture_info.width, capture_info.height, capture_info.size);
-                server.as_mut().unwrap().set_current_capture_id(capture_count);
-                server.as_mut().unwrap().set_last_capture_date_time(SystemTime::now());
+                server_info.last_capture_date_time = SystemTime::now();
                 capture_count += 1;
+                server_info.current_capture_id = capture_count;
             }
 
             next_capture_time = get_next_wake_time(server_info.leap_time, server_info.timezone, next_capture_time, server_info.duration);
@@ -456,6 +460,7 @@ fn main() -> anyhow::Result<()> {
                         DURATION_TIME = current_duration;
                         CURRENT_RESOLUTION = current_resolution;
                         CURRENT_TRACK_ID = current_track_id;
+                        LAST_CAPTURE_TIME = server_info.last_capture_date_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                     }
                     emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
                     deep_and_light_sleep_start(SleepMode::SleepModeDeep, sleep_time.as_secs());
@@ -591,7 +596,6 @@ fn convert_config_to_toml_string(keyval: &Vec<(String, String)>) -> String {
 fn save_config<T : NvsPartitionId>(config: &ConfigData, nvs: &mut EspNvs<T>) {
     let save_config = config.get_all_config();
     let toml_cfg = convert_config_to_toml_string(&save_config);
-    info!("Save config: {:?}", toml_cfg);
     match nvs.set_str("config", toml_cfg.as_str()) {
         Ok(_) => { info!("Save config"); },
         Err(ref e) => { info!("Set default config failed {:?}", e); }
