@@ -163,7 +163,9 @@ There is a Schematic data in the hardware directory including 3D printing data.
 This source code is licensed under MIT. Other Hardware Schematic documents are licensed under CC-BY-SA V4.0.
 
 This project uses the following libraries and resources:
-  https://github.com/jlocash/esp-camera-rs
-  https://github.com/0015/ESP32-OV5640-AF
+  
+https://github.com/jlocash/esp-camera-rs
 
-  These libraries are licensed under each library's respective licenses.
+https://github.com/0015/ESP32-OV5640-AF
+
+These libraries are licensed under each library's respective licenses.
