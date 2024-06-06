@@ -8,5 +8,5 @@ pid = "1001"
 
 [flash]
 mode = "dio"  # It must be "dio" because GPIO9, GPIO10 are used for eMMC and Camera.
-size = "16MB"
+size = "8MB"
 frequency = "40MHz"

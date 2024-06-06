@@ -57,7 +57,7 @@ impl Capture {
             info!("Capturing Frame Thread Start...");
             let camera = camera.lock().unwrap();
             let sensor = camera.sensor();
-            let autofocus = AutoFocus::new(&sensor);
+            let mut autofocus = AutoFocus::new(&sensor);
             autofocus.init();
             // let _ = sensor.set_pixformat(camera::pixformat_t_PIXFORMAT_JPEG);
             // let _ = sensor.set_framesize(camera::framesize_t_FRAMESIZE_VGA);

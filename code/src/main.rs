@@ -71,13 +71,14 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
 
     // eMMC and Camera Power On (low active)
-    let mut emmc_cam_power = PinDriver::output(peripherals.pins.gpio44).unwrap();
-    emmc_cam_power.set_low().expect("Set emmc_cam_power low failure");
+    let mut emmc_cam_power = PinDriver::output(peripherals.pins.gpio3).unwrap();
+    emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
+    // emmc_cam_power.set_low().expect("Set emmc_cam_power low failure");
 
     // TouchPad
     let mut touchpad = TouchPad::new();
     touchpad.start();
-    thread::sleep(Duration::from_millis(1000));
+    thread::sleep(Duration::from_millis(100));
 
     // operating mode
     let mut operating_mode = false;
@@ -113,6 +114,9 @@ fn main() -> anyhow::Result<()> {
     // Initialize Configuration Data
     let mut config_data = ConfigData::new();
 
+    // XIAO ESP32S3 is always in operating mode
+    operating_mode = true;
+
     // Initialize NVS
     let nvs_default_partition = EspNvsPartition::<NvsDefault>::take().unwrap();
     let mut nvs = match EspNvs::new(nvs_default_partition, "storage", true) {
@@ -145,10 +149,10 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Initialize ADC
-    let mut adc = AdcDriver::new(peripherals.adc1, &AdcConfig::new().calibration(true))?;
-    let mut adc_pin : AdcChannelDriver<'_, {esp_idf_sys::adc_atten_t_ADC_ATTEN_DB_11}, Gpio2> = AdcChannelDriver::new(peripherals.pins.gpio2)?;
-    let battery_voltage : f32 =  adc.read(&mut adc_pin).unwrap() as f32 * 2.0 / 1000.0;
-    info!("Battery Voltage: {:.2}V", battery_voltage);
+    // let mut adc = AdcDriver::new(peripherals.adc1, &AdcConfig::new().calibration(true))?;
+    // let mut adc_pin : AdcChannelDriver<'_, {esp_idf_sys::adc_atten_t_ADC_ATTEN_DB_11}, Gpio2> = AdcChannelDriver::new(peripherals.pins.gpio2)?;
+    // let battery_voltage : f32 =  adc.read(&mut adc_pin).unwrap() as f32 * 2.0 / 1000.0;
+    // info!("Battery Voltage: {:.2}V", battery_voltage);
     // emmc initialize
     let mut emmc = EMMCHost::new();
     emmc.mount(); 
@@ -161,7 +165,7 @@ fn main() -> anyhow::Result<()> {
     info!("Auto Capture: {:?}", unsafe { DEEP_SLEEP_AUTO_CAPTURE } );
     info!("Image Count ID: {:?}", unsafe { IMAGE_COUNT_ID });
 
-    let mut current_resolution = camera::framesize_t_FRAMESIZE_QSXGA;
+    let mut current_resolution = camera::framesize_t_FRAMESIZE_UXGA;
     if operating_mode {
         // operating mode
         server_info.auto_capture = config_data.auto_capture;
@@ -279,19 +283,19 @@ fn main() -> anyhow::Result<()> {
     let cam = Camera::new(
         peripherals.pins.gpio43,    // PWDN
         peripherals.pins.gpio0,     // RESET
-        peripherals.pins.gpio48,    // XCLK
-        peripherals.pins.gpio42,    // SIOD
-        peripherals.pins.gpio41,    // SIOC
-        peripherals.pins.gpio11,    // Y2
-        peripherals.pins.gpio18,    // Y3
-        peripherals.pins.gpio17,    // Y4
-        peripherals.pins.gpio10,    // Y5
-        peripherals.pins.gpio12,    // Y6
-        peripherals.pins.gpio14,    // Y7
-        peripherals.pins.gpio47,    // Y8
-        peripherals.pins.gpio38,    // Y9
-        peripherals.pins.gpio40,    // VSYNC
-        peripherals.pins.gpio39,    // HREF
+        peripherals.pins.gpio10,    // XCLK
+        peripherals.pins.gpio40,    // SIOD
+        peripherals.pins.gpio39,    // SIOC
+        peripherals.pins.gpio15,    // Y2
+        peripherals.pins.gpio17,    // Y3
+        peripherals.pins.gpio18,    // Y4
+        peripherals.pins.gpio16,    // Y5
+        peripherals.pins.gpio14,    // Y6
+        peripherals.pins.gpio12,    // Y7
+        peripherals.pins.gpio11,    // Y8
+        peripherals.pins.gpio48,    // Y9
+        peripherals.pins.gpio38,    // VSYNC
+        peripherals.pins.gpio47,    // HREF
         peripherals.pins.gpio13,    // PCLK
         5000000,                    // XCLK frequency
         6,                         // JPEG quality
@@ -336,8 +340,8 @@ fn main() -> anyhow::Result<()> {
             }
             server.as_mut().unwrap().set_current_rssi(rssi);
             // read battery voltage
-            let battery_voltage : f32 =  adc.read(&mut adc_pin).unwrap() as f32 * 2.0 / 1000.0;
-            server.as_mut().unwrap().set_current_battery_voltage(battery_voltage);
+            // let battery_voltage : f32 =  adc.read(&mut adc_pin).unwrap() as f32 * 2.0 / 1000.0;
+            // server.as_mut().unwrap().set_current_battery_voltage(battery_voltage);
             server_info = server.as_mut().unwrap().get_server_info().clone();
 
             // check save config
@@ -365,14 +369,14 @@ fn main() -> anyhow::Result<()> {
                 }
             }
             current_duration = server_info.duration;
-            server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
-            if server_info.latest_access_time.elapsed().unwrap().as_secs() > config_data.idle_in_sleep_time as u64 {
-                if operating_mode_start_time.elapsed().unwrap().as_secs() > config_data.idle_in_sleep_time as u64 {
-                    operating_mode = false;
-                    emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
-                    deep_and_light_sleep_start(SleepMode::SleepModeDeep, 0);
-                }
-            }    
+            // server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+            // if server_info.latest_access_time.elapsed().unwrap().as_secs() > config_data.idle_in_sleep_time as u64 {
+            //     if operating_mode_start_time.elapsed().unwrap().as_secs() > config_data.idle_in_sleep_time as u64 {
+            //         operating_mode = false;
+            //         // emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
+            //         deep_and_light_sleep_start(SleepMode::SleepModeDeep, 0);
+            //     }
+            // }    
         }
 
         // let key_event = touchpad.get_key_event_and_clear();
@@ -462,7 +466,7 @@ fn main() -> anyhow::Result<()> {
                         CURRENT_TRACK_ID = current_track_id;
                         LAST_CAPTURE_TIME = server_info.last_capture_date_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                     }
-                    emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
+                    // emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
                     deep_and_light_sleep_start(SleepMode::SleepModeDeep, sleep_time.as_secs());
                 }
             }
