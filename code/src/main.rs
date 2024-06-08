@@ -219,7 +219,9 @@ fn main() -> anyhow::Result<()> {
             }
             let rssi = wifi::get_rssi();
             info!("RSSI: {}dBm", rssi);
-        
+            // ssid
+            let ssid = config_data.wifi_ssid.clone();
+            info!("Connected SSID: {:?}", ssid);
             // Get my IP address
             let mut ip_addr : Ipv4Addr; 
             loop {
@@ -230,6 +232,7 @@ fn main() -> anyhow::Result<()> {
                 info!("Waiting for WiFi connection...");
                 thread::sleep(Duration::from_secs(1));
             }
+            info!("My IP address: {}", ip_addr);
             
             // NTP Server
             let sntp_conf = SntpConf {
