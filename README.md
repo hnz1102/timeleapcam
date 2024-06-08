@@ -1,7 +1,7 @@
 <div align="center">
   <h1><code>Time Leap Cam</code></h1>
   <p>
-    <img src="doc/timeleapcam.jpg"/>
+    <img src="doc/front.jpg"/>
   </p>
 </div>
 
