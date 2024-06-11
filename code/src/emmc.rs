@@ -5,11 +5,11 @@ use esp_idf_sys::sdmmc_card_t;
 use esp_idf_sys::sdmmc_host_t;
 
 const SDMMC_SLOT_CONFIG_WIDTH : u8 = 1;
-const SDMMC_SLOT_CONFIG_CLK : i32 = 8;
-const SDMMC_SLOT_CONFIG_CMD : i32 = 10;
-const SDMMC_SLOT_CONFIG_D0 : i32 = 9;
+const SDMMC_SLOT_CONFIG_CLK : i32 = 7;
+const SDMMC_SLOT_CONFIG_CMD : i32 = 9;
+const SDMMC_SLOT_CONFIG_D0 : i32 = 8;
 const SDMMC_SLOT_CONFIG_D1 : i32 = -1;
-const SDMMC_SLOT_CONFIG_D2 : i32 = -1;
+const SDMMC_SLOT_CONFIG_D2 : i32 = 3;
 const SDMMC_SLOT_CONFIG_D3 : i32 = -1;
 const SDMMC_SLOT_CONFIG_D4 : i32 = -1;
 const SDMMC_SLOT_CONFIG_D5 : i32 = -1;

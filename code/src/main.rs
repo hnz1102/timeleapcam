@@ -165,7 +165,7 @@ fn main() -> anyhow::Result<()> {
     info!("Auto Capture: {:?}", unsafe { DEEP_SLEEP_AUTO_CAPTURE } );
     info!("Image Count ID: {:?}", unsafe { IMAGE_COUNT_ID });
 
-    let mut current_resolution = camera::framesize_t_FRAMESIZE_UXGA;
+    let mut current_resolution = camera::framesize_t_FRAMESIZE_VGA;
     if operating_mode {
         // operating mode
         server_info.auto_capture = config_data.auto_capture;
@@ -297,11 +297,11 @@ fn main() -> anyhow::Result<()> {
         peripherals.pins.gpio38,    // VSYNC
         peripherals.pins.gpio47,    // HREF
         peripherals.pins.gpio13,    // PCLK
-        5000000,                    // XCLK frequency
-        6,                         // JPEG quality
-        1,                         // Frame buffer count
+        20000000,                    // XCLK frequency
+        10,                         // JPEG quality
+        2,                         // Frame buffer count
         camera::camera_grab_mode_t_CAMERA_GRAB_LATEST,        // grab mode
-        //camera::camera_grab_mode_t_CAMERA_GRAB_WHEN_EMPTY,    // grab mode
+        // camera::camera_grab_mode_t_CAMERA_GRAB_WHEN_EMPTY,    // grab mode
         current_resolution,        // frame size have to be maximum resolution
     );
     let camera_device : Camera = match cam {

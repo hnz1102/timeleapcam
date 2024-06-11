@@ -463,6 +463,30 @@ impl ControlServer {
             Ok::<(), EspIOError>(())
         }).unwrap();
 
+        // status.html by GET method
+        self.http_server.fn_handler("/status.html", Method::Get, move |request| {
+            let response = request.into_ok_response();
+            let status_html = status_html();
+            response?.write_all(status_html.as_bytes())?;
+            Ok::<(), EspIOError>(())
+        }).unwrap();
+
+        // image.html by GET method
+        self.http_server.fn_handler("/image.html", Method::Get, move |request| {
+            let response = request.into_ok_response();
+            let image_html = image_html();
+            response?.write_all(image_html.as_bytes())?;
+            Ok::<(), EspIOError>(())
+        }).unwrap();
+
+        // monitor.html by GET method
+        self.http_server.fn_handler("/monitor.html", Method::Get, move |request| {
+            let response = request.into_ok_response();
+            let monitor_html = monitor_html();
+            response?.write_all(monitor_html.as_bytes())?;
+            Ok::<(), EspIOError>(())
+        }).unwrap();
+
         // button state by GET method
         let server_info_status = self.server_info.clone();
         self.http_server.fn_handler("/state", Method::Get, move |request| {
@@ -692,6 +716,179 @@ impl ControlServer {
     }
 }
 
+fn image_html() -> String {
+    format!(
+        r#"
+<!DOCTYPE HTML><html>
+<head>
+    <title>Time Leap Cam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+    html {{font-family: Times New Roman; display: inline-block; text-align: center;}}
+    h2 {{font-size: 3.0rem;}}
+    h4 {{font-size: 2.0rem;}}
+    h5 {{font-size: 1.0rem; text-align: left;}}
+    p {{font-size: 3.0rem;}}
+    body {{max-width: 900px; margin:0px auto; padding-bottom: 25px;}}
+    .switch {{position: relative; display: inline-block; width: 120px; height: 68px}} 
+    .switch input {{display: none}}
+    .slider {{position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #FF0000; border-radius: 34px}}
+    .slider:before {{position: absolute; content: ""; height: 52px; width: 52px; left: 8px; bottom: 8px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 68px}}
+    input:checked+.slider {{background-color: #27c437}}
+    input:checked+.slider:before {{-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}}
+    .thumbnail {{ cursor: pointer; width: 492px; height: 500px; margin: 0 auto; text-align: left;}}
+    .topnav {{ background-color: #1206d7; overflow: hidden}}
+    .topnav a {{ float: left; color: #f2f2f2; text-align: center; padding: 14px 16px; text-decoration: none; font-size: 17px}}
+    .topnav a:hover {{ background-color: #ddd; color: black}}
+    .topnav a.active {{ background-color: #0dc044; color: white}}
+    .left {{ float: left; width: 50%; font-size: 2.0rem; text-align: left;}}
+    .left33 {{ float: left; width: 33%; font-size: 2.0rem; text-align: left;}}
+    .left3 {{ float: left; width: 50%; font-size: 3.0rem; text-align: center;}}
+    .right {{ float: right; width: 50%; text-align: center; font-size: 2.0rem;}}
+    .clear {{ clear: both;}}
+    </style>
+</head>
+
+<body>
+<div class="topnav">
+  <a href="/">CAPTURE</a>
+  <a class="active" href="image.html">IMAGE</a>
+  <a href="monitor.html">MONITORING</a>
+  <a href="config.html">CONFIG</a>
+  <a href="status.html">STATUS</a>
+</div>
+<div style="padding:20px;">
+<div class="thumbnail">
+<div>
+<canvas id="canvas0" width="160" height="120" onclick="drawImageOnWindow(0, 0, -1)"></canvas>
+<canvas id="canvas1" width="160" height="120" onclick="drawImageOnWindow(1, 0, -1)"></canvas>
+</div>
+<div>
+<canvas id="canvas2" width="160" height="120" onclick="drawImageOnWindow(2, 0, -1)"></canvas>
+<canvas id="canvas3" width="160" height="120" onclick="drawImageOnWindow(3, 0, -1)"></canvas>
+</div>
+<div>
+<canvas id="canvas4" width="160" height="120" onclick="drawImageOnWindow(4, 0, -1)"></canvas>
+<canvas id="canvas5" width="160" height="120" onclick="drawImageOnWindow(5, 0, -1)"></canvas>
+</div>
+<div>
+<canvas id="canvas6" width="160" height="120" onclick="drawImageOnWindow(6, 0, -1)"></canvas>
+<canvas id="canvas7" width="160" height="120" onclick="drawImageOnWindow(7, 0, -1)"></canvas>
+</div>
+<div>
+<canvas id="canvas8" width="160" height="120" onclick="drawImageOnWindow(8, 0, -1)"></canvas>
+<canvas id="canvas9" width="160" height="120" onclick="drawImageOnWindow(9, 0, -1)"></canvas>
+</div>
+<div>
+<canvas id="canvas10" width="160" height="120" onclick="drawImageOnWindow(10, 0, -1)"></canvas>
+<canvas id="canvas11" width="160" height="120" onclick="drawImageOnWindow(11, 0, -1)"></canvas>
+</div></div></div>
+<script>
+function drawImageOnWindow(trackid, fromframe, toframe) {{
+    var random_number = Math.floor(Math.random()*10000);
+    window.open('/data?trackid=' + trackid + '&fromframe=' + fromframe + '&toframe=' + toframe + '&random_number=' + random_number);
+}}
+
+function drawThumbnail(trackid, canvasid) {{
+    var random_number = Math.floor(Math.random()*10000);
+    var canvas = document.getElementById(canvasid);
+    var ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // draw image size to canvas size
+    var img = new Image();
+    img.onload = function() {{
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    }};
+    img.src = "/data?trackid=" + trackid + "&fromframe=0&toframe=0&random_number=" + random_number;
+}}
+
+function drawAllThumbnail() {{
+    for (var i = 0; i < 11; i++) {{
+        drawThumbnail(i, "canvas" + i);
+    }}
+}}
+
+drawAllThumbnail();
+
+</script>
+</body>
+</html>
+"#)
+}
+
+fn monitor_html() -> String {
+    format!(
+        r#"
+<!DOCTYPE HTML><html>
+<head>
+    <title>Time Leap Cam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+    html {{font-family: Times New Roman; display: inline-block; text-align: center;}}
+    h2 {{font-size: 3.0rem;}}
+    h4 {{font-size: 2.0rem;}}
+    h5 {{font-size: 1.0rem; text-align: left;}}
+    p {{font-size: 3.0rem;}}
+    body {{max-width: 900px; margin:0px auto; padding-bottom: 25px;}}
+    .switch {{position: relative; display: inline-block; width: 60px; height: 34px}} 
+    .switch input {{display: none}}
+    .slider {{position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #FF0000; border-radius: 34px}}
+    .slider:before {{position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 34px}}
+    input:checked+.slider {{background-color: #27c437}}
+    input:checked+.slider:before {{-webkit-transform: translateX(26px); -ms-transform: translateX(26px); transform: translateX(26px)}}
+    .thumbnail {{ cursor: pointer; width: 492px; height: 500px; margin: 0 auto; text-align: left;}}
+    .topnav {{ background-color: #1206d7; overflow: hidden}}
+    .topnav a {{ float: left; color: #f2f2f2; text-align: center; padding: 14px 16px; text-decoration: none; font-size: 17px}}
+    .topnav a:hover {{ background-color: #ddd; color: black}}
+    .topnav a.active {{ background-color: #0dc044; color: white}}
+    .left {{ float: left; width: 50%; font-size: 2.0rem; text-align: left;}}
+    .leftall {{  clear: both; width: 100%; font-size: 2.0rem; text-align: left; }}
+    .left33 {{ float: left; width: 33%; font-size: 2.0rem; text-align: left;}}
+    .left3 {{ float: left; width: 50%; font-size: 3.0rem; text-align: center;}}
+    .right {{ float: right; width: 50%; text-align: center; font-size: 2.0rem;}}
+    .clear {{ clear: both;}}
+    </style>
+</head>
+
+<body>
+<div class="topnav">
+  <a href="/">CAPTURE</a>
+  <a href="image.html">IMAGE</a>
+  <a class="active" href="monitor.html">MONITORING</a>
+  <a href="config.html">CONFIG</a>
+  <a href="status.html">STATUS</a>
+</div>
+<div style="padding:20px;">
+<div class="left">
+<label for="queryopenai">Monitoring Mode:</label></div>
+<div class="left">
+<label class="switch"><input type="checkbox" onchange="toggleCheckbox(this)" id="queryopenai">
+<span class="slider"></span></label>
+</div>
+<div class="clear">
+<div class="left">
+<label for="queryprompt">Prompt:</label></div>
+</div>
+<div class="leftall">
+<textarea id="queryprompt" name="" rows="4" cols="50">Input Query Prompt</textarea>
+</div>
+</div>
+
+<script>
+function toggleCheckbox(element) {{
+    var queryopenai = document.getElementById("queryopenai");
+    if (element.checked) {{
+        queryopenai.selectedIndex = 0;
+    }} else {{
+        queryopenai.selectedIndex = 1;
+    }}
+}}
+</script>
+</body>
+</html>
+"#)
+}
+
 fn index_html(status: bool) -> String {
     format!(
         r#"
@@ -703,31 +900,46 @@ fn index_html(status: bool) -> String {
     html {{font-family: Times New Roman; display: inline-block; text-align: center;}}
     h2 {{font-size: 3.0rem;}}
     h4 {{font-size: 2.0rem;}}
-    h5 {{font-size: 1.0rem;}}
+    h5 {{font-size: 1.0rem; text-align: left;}}
     p {{font-size: 3.0rem;}}
     body {{max-width: 900px; margin:0px auto; padding-bottom: 25px;}}
-    .switch {{position: relative; display: inline-block; width: 120px; height: 68px}} 
+    .switch {{position: relative; display: inline-block; width: 60px; height: 34px}} 
     .switch input {{display: none}}
     .slider {{position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #FF0000; border-radius: 34px}}
-    .slider:before {{position: absolute; content: ""; height: 52px; width: 52px; left: 8px; bottom: 8px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 68px}}
+    .slider:before {{position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 34px}}
     input:checked+.slider {{background-color: #27c437}}
-    input:checked+.slider:before {{-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}}
-    .thumbnail {{ cursor: pointer; width: 492px; height: 500px; margin: 0 auto; }}</style>
+    input:checked+.slider:before {{-webkit-transform: translateX(26px); -ms-transform: translateX(26px); transform: translateX(26px)}}
+    .thumbnail {{ cursor: pointer; width: 492px; height: 500px; margin: 0 auto}}
+    .topnav {{ background-color: #1206d7; overflow: hidden}}
+    .topnav a {{ float: left; color: #f2f2f2; text-align: center; padding: 14px 16px; text-decoration: none; font-size: 17px}}
+    .topnav a:hover {{ background-color: #ddd; color: black}}
+    .topnav a.active {{ background-color: #0dc044; color: white}}
+    .left {{ float: left; width: 50%; font-size: 2.0rem; text-align: left;}}
+    .left3 {{ float: left; width: 50%; font-size: 3.0rem; text-align: center;}}
+    .right {{ float: right; width: 50%; text-align: center; font-size: 2.0rem;}}
+    .clear {{ clear: both;}}
+    </style>
 </head>
 
 <body>
-<h2>Time Leap Cam</h2>
-<h4>Cam State <span id="camState"><span></h4>
-<h4>Start/Stop Capture</h4>
+<div class="topnav">
+  <a class="active" href="/">CAPTURE</a>
+  <a href="image.html">IMAGE</a>
+  <a href="monitor.html">MONITORING</a>
+  <a href="config.html">CONFIG</a>
+  <a href="status.html">STATUS</a>
+</div>
+<div style="padding:20px;">
+<div class="left3">
+<label for="captureStart">Capture Start:</label></div>
+<div class="left3">
 <label class="switch"><input type="checkbox" onchange="toggleCheckbox(this)" id="captureStart" {} >
 <span class="slider"></span></label>
-
-<h5>Battery Voltage <span id="batteryVoltage"><span>V</h5>
-<h5>WiFi RSSI <span id="wifiRSSI"><span>dBm</h5>
-<h5>Capture ID <span id="captureID"><span></h5>
-<h5>Last Capture Date & Time <span id="lastCaptureDateTime"><span></h5>
-
-<h4>Camera Resolution</h4>
+</div>
+<div class="clear">
+<div class="left">
+<label for="resolutionSelect">Camera Resolution:</label></div>
+<div class="left">
 <select id="resolutionSelect" onchange="setResolution(this)">
 <option value="QVGA">QVGA 320x240</option>
 <option value="CIF">CIF 400x296</option>
@@ -744,8 +956,11 @@ fn index_html(status: bool) -> String {
 <option value="WQXGA">WQXGA 2560x1600</option>
 <option value="QHD">QHD 2560x1440</option>
 </select>
-
-<h4>Record Track ID</h4>
+</div>
+<div class="clear">
+<div class="left">
+<label for="trackidSelect">Track ID:</label></div>
+<div class="left">
 <select id="trackidSelect">
 <option value="0">0</option>
 <option value="1">1</option>
@@ -759,8 +974,12 @@ fn index_html(status: bool) -> String {
 <option value="9">9</option>
 <option value="10">10</option>
 </select>
+</div></div>
 
-<h4>Duration</h4>
+<div class="clear">
+<div class="left">
+<label for="durationSelect">Duration:</label></div>
+<div class="left">
 <select id="durationSelect">
 <option value="0">None</option>
 <option value="10">10</option>
@@ -791,52 +1010,14 @@ fn index_html(status: bool) -> String {
 <option value="39600">11hr</option>
 <option value="43200">12hr</option>
 </select>
+</div></div>
 
-<h4>Leap Date & Time</h4>
+<div class="clear">
+<div class="left">
+<label for="leapdate">Leap Date Time:</label></div>
+<div class="left">
 <input type="date" id="leapdate" value="2024-01-01">
 <input type="time" id="leaptime" value="00:00:00">
-
-<h4>Show Captured Image</h4>
-<h5>Show Track ID</h5>
-<select id="showTrackidSelect" onchange="drawImage(document.getElementById('showTrackidSelect').value, document.getElementById('fromframe').value, document.getElementById('toframe').value)">
-<option value="0">0</option>
-<option value="1">1</option>
-<option value="2">2</option>
-<option value="3">3</option>
-<option value="4">4</option>
-<option value="5">5</option>
-<option value="6">6</option>
-<option value="7">7</option>
-<option value="8">8</option>
-<option value="9">9</option>
-<option value="10">10</option>
-</select>
-<h5>show frames</h5>
-<input type="number" id="fromframe" value="0">
--
-<input type="number" id="toframe" value="10">
-<button onclick="drawImage(document.getElementById('showTrackidSelect').value, document.getElementById('fromframe').value, document.getElementById('toframe').value)">Show</button>
-<br>
-<canvas id="canvas" width="640" height="480"></canvas>
-<div class="thumbnail">
-<div>
-<canvas id="canvas0" width="160" height="120" onclick="drawImageOnWindow(0, document.getElementById('fromframe').value, -1)"></canvas>
-<canvas id="canvas1" width="160" height="120" onclick="drawImageOnWindow(1, document.getElementById('fromframe').value, -1)"></canvas>
-<canvas id="canvas2" width="160" height="120" onclick="drawImageOnWindow(2, document.getElementById('fromframe').value, -1)"></canvas>
-</div>
-<div>
-<canvas id="canvas3" width="160" height="120" onclick="drawImageOnWindow(3, document.getElementById('fromframe').value, -1)"></canvas>
-<canvas id="canvas4" width="160" height="120" onclick="drawImageOnWindow(4, document.getElementById('fromframe').value, -1)"></canvas>
-<canvas id="canvas5" width="160" height="120" onclick="drawImageOnWindow(5, document.getElementById('fromframe').value, -1)"></canvas>
-</div>
-<div>
-<canvas id="canvas6" width="160" height="120" onclick="drawImageOnWindow(6, document.getElementById('fromframe').value, -1)"></canvas>
-<canvas id="canvas7" width="160" height="120" onclick="drawImageOnWindow(7, document.getElementById('fromframe').value, -1)"></canvas>
-<canvas id="canvas8" width="160" height="120" onclick="drawImageOnWindow(8, document.getElementById('fromframe').value, -1)"></canvas>
-</div>
-<div>
-<canvas id="canvas9" width="160" height="120" onclick="drawImageOnWindow(9, document.getElementById('fromframe').value, -1)"></canvas>
-<canvas id="canvas10" width="160" height="120" onclick="drawImageOnWindow(10, document.getElementById('fromframe').value, -1)"></canvas>
 </div></div>
 
 <h4>Save Configuration</h4>
@@ -875,52 +1056,17 @@ fn index_html(status: bool) -> String {
 <option value="true">True</option>
 <option value="false">False</option>
 </select>
-<h5>Monitoring Mode</h5>
-<select id="queryopenai">
-<option value="true">Monitoring ON</option>
-<option value="false">Monitoring OFF</option>
-</select>
-<h5>Query Open AI Prompt</h5>
-<textarea id="queryprompt" name="" cols="50" rows="4">Prompt</textarea>
 <h5>OpenAI Model</h5>
 <select id="openaiSelect">
 <option value="gpt-4o">GPT-4o</option>
 <option value="gpt-4-turbo">GPT-4-Turbo</option>
 </select>
+
 <h5>Config Save</h5>
 <button onclick="saveConfig()">Save</button>
+</div>
 
 <script>
-function drawImageOnWindow(trackid, fromframe, toframe) {{
-    var random_number = Math.floor(Math.random()*10000);
-    window.open('/data?trackid=' + trackid + '&fromframe=' + fromframe + '&toframe=' + toframe + '&random_number=' + random_number);
-}}
-
-function drawThumbnail(trackid, canvasid) {{
-    var random_number = Math.floor(Math.random()*10000);
-    var canvas = document.getElementById(canvasid);
-    var ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // draw image size to canvas size
-    var img = new Image();
-    img.onload = function() {{
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    }};
-    img.src = "/data?trackid=" + trackid + "&fromframe=0&toframe=0&random_number=" + random_number;
-}}
-
-function drawImage(trackid, fromframe, toframe) {{
-    var random_number = Math.floor(Math.random()*10000);
-    var canvas = document.getElementById("canvas");
-    var ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    var img = new Image();
-    img.onload = function() {{
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    }};
-    img.src = "/data?trackid=" + trackid + "&fromframe=" + fromframe + "&toframe=" + toframe + "&random_number=" + random_number;
-}}
-
 function saveConfig() {{
     var resolution_element = document.getElementById("resolutionSelect");
     var trackid_element = document.getElementById("trackidSelect");
@@ -1058,22 +1204,127 @@ function getConfig() {{
     xhttp.send();
 }};
 
-function drawAllThumbnail() {{
-    for (var i = 0; i < 11; i++) {{
-        drawThumbnail(i, "canvas" + i);
-    }}
-}}
+// function drawAllThumbnail() {{
+//     for (var i = 0; i < 11; i++) {{
+//         drawThumbnail(i, "canvas" + i);
+//     }}
+// }}
 
 // setInterval(function ( ) {{
 //     drawAllThumbnail();
 // }}, 10000 ) ;
 getConfig();
-drawAllThumbnail();
+// drawAllThumbnail();
 
 </script>
 </body>
 </html>
 "#, if status { "checked" } else { "" }
     )
+}
+
+fn status_html() -> String {
+    format!(
+        r#"
+<!DOCTYPE HTML><html>
+<head>
+    <title>Time Leap Cam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+    html {{font-family: Times New Roman; display: inline-block; text-align: center;}}
+    h2 {{font-size: 3.0rem;}}
+    h4 {{font-size: 2.0rem;}}
+    h5 {{font-size: 1.0rem; text-align: left;}}
+    p {{font-size: 3.0rem;}}
+    body {{max-width: 900px; margin:0px auto; padding-bottom: 25px;}}
+    .switch {{position: relative; display: inline-block; width: 120px; height: 68px}} 
+    .switch input {{display: none}}
+    .slider {{position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #FF0000; border-radius: 34px}}
+    .slider:before {{position: absolute; content: ""; height: 52px; width: 52px; left: 8px; bottom: 8px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 68px}}
+    input:checked+.slider {{background-color: #27c437}}
+    input:checked+.slider:before {{-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}}
+    .thumbnail {{ cursor: pointer; width: 492px; height: 500px; margin: 0 auto}}
+    .topnav {{ background-color: #1206d7; overflow: hidden}}
+    .topnav a {{ float: left; color: #f2f2f2; text-align: center; padding: 14px 16px; text-decoration: none; font-size: 17px}}
+    .topnav a:hover {{ background-color: #ddd; color: black}}
+    .topnav a.active {{ background-color: #0dc044; color: white}}
+    .left {{ float: left; width: 50%; font-size: 1.5rem; text-align: left;}}
+    .left3 {{ float: left; width: 50%; font-size: 3.0rem; text-align: center;}}
+    .right {{ float: right; width: 50%; text-align: center; font-size: 2.0rem;}}
+    .clear {{ clear: both;}}
+    </style>
+</head>
+
+<body>
+<div class="topnav">
+  <a class="active" href="/">CAPTURE</a>
+  <a href="image.html">IMAGE</a>
+  <a href="monitor.html">MONITORING</a>
+  <a href="config.html">CONFIG</a>
+  <a href="status.html">STATUS</a>
+</div>
+<div style="padding:20px;">
+<div class="left">
+<label for="camState">Connection:</label></div>
+<div class="left"><span id="camState"><span></div>
+
+<div class="clear">
+<div class="left">
+<label for="batteryVoltage">Battery Voltage:</label></div>
+<div class="left"><span id="batteryVoltage"><span>V</div>
+</div>
+
+<div class="clear">
+<div class="left">
+<label for="wifiRSSI">WiFi RSSI:</label></div>
+<div class="left"><span id="wifiRSSI"><span>dBm</div>
+</div>
+
+<div class="clear">
+<div class="left">
+<label for="captureID">Capture ID:</label></div>
+<div class="left"><span id="captureID"><span></div>
+</div>
+
+<div class="clear">
+<div class="left">
+<label for="lastCaptureDateTime">Last Capture Date & Time:</label></div>
+<div class="left"><span id="lastCaptureDateTime"><span></div>
+</div>
+</div>
+
+<script>
+
+function get_state () {{
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {{
+        if (this.readyState == 4 && this.status == 200) {{
+            var status = JSON.parse(this.responseText);
+            var camState = "Connected";
+            document.getElementById("camState").innerHTML = camState;
+            var batteryVoltage = status.battery_voltage;
+            var wifiRSSI = status.rssi;
+            document.getElementById("batteryVoltage").innerHTML = batteryVoltage+"V";
+            document.getElementById("wifiRSSI").innerHTML = wifiRSSI+"dBm";
+            document.getElementById("captureID").innerHTML = status.capture_id;
+            document.getElementById("lastCaptureDateTime").innerHTML = status.last_capture_date_time;
+        }}
+        else if (this.readyState == 4 && this.status == 0) {{
+            document.getElementById("camState").innerHTML = "Not Connected";
+        }}
+    }};
+    xhttp.open("GET", "/state", true);
+    xhttp.send();
+}}
+
+setInterval(function ( ) {{
+    get_state();
+}}, 10000 ) ;
+
+get_state();
+</script>
+</body>
+</html>
+"#)
 }
 

@@ -58,21 +58,21 @@ impl Capture {
             let camera = camera.lock().unwrap();
             let sensor = camera.sensor();
             let mut autofocus = AutoFocus::new(&sensor);
-            autofocus.init();
-            // let _ = sensor.set_pixformat(camera::pixformat_t_PIXFORMAT_JPEG);
+            // autofocus.init();
+            let _ = sensor.set_pixformat(camera::pixformat_t_PIXFORMAT_JPEG);
             // let _ = sensor.set_framesize(camera::framesize_t_FRAMESIZE_VGA);
             let _ = sensor.set_quality(10);
             let _ = sensor.set_hmirror(true);
-            autofocus.autofocus_zoneconfig(); 
-            autofocus.autofocus();
+            // autofocus.autofocus_zoneconfig(); 
+            // autofocus.autofocus();
 
             let mut current_status = false;
             loop {
                 let mut infolk = info.lock().unwrap();
                 if infolk.change_resolution {
                     let _ = sensor.set_framesize(infolk.resolution);
-                    autofocus.autofocus_zoneconfig();
-                    autofocus.autofocus();
+                    // autofocus.autofocus_zoneconfig();
+                    // autofocus.autofocus();
                     infolk.change_resolution = false;
                 }
                 if current_status == false && infolk.request {
