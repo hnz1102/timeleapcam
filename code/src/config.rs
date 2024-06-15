@@ -37,6 +37,12 @@ pub struct Config {
     storage_access_token: &'static str,
     #[default("")]
     post_message_trigger: &'static str,
+    #[default("true")]
+    autofocus_once: &'static str,
+    #[default("false")]
+    status_report: &'static str,
+    #[default("600")]
+    status_report_interval: &'static str,
 }
 
 const MENU_SSID: (&str, &str) = ("SSID", "ssid");
@@ -56,6 +62,9 @@ const MENU_POSTACCESSTOKEN: (&str, &str) = ("POSTACCESSTOKEN", "postaccesstoken"
 const MENU_STORAGEACCOUNT: (&str, &str) = ("STORAGEACCOUNT", "storageaccount");
 const MENU_STORAGEACCESSTOKEN: (&str, &str) = ("STORAGEACCESSTOKEN", "storageaccesstoken");
 const MENU_POSTMESSAGETRIGGER: (&str, &str) = ("POSTMESSAGETRIGGER", "postmessagetrigger");
+const MENU_AUTOFOCUSONCE: (&str, &str) = ("AUTOFOCUSONCE", "autofocusonce");
+const MENU_STATUSREPORT: (&str, &str) = ("STATUSREPORT", "statusreport");
+const MENU_STATUSREPORTINTERVAL: (&str, &str) = ("STATUSREPORTINTERVAL", "statusreportinterval");
 
 #[derive(Debug)]
 pub struct ConfigData {
@@ -76,6 +85,9 @@ pub struct ConfigData {
     pub storage_account: String,
     pub storage_access_token: String,
     pub post_message_trigger: String,
+    pub autofocus_once: bool,
+    pub status_report: bool,
+    pub status_report_interval: u32,
 }
 
 impl ConfigData {
@@ -98,6 +110,9 @@ impl ConfigData {
             storage_account: String::new(),
             storage_access_token: String::new(),
             post_message_trigger: String::new(),
+            autofocus_once: false,
+            status_report: false,
+            status_report_interval: 0,
         }
     }
     pub fn load_config(&mut self, nvs_value: Option<&str>) -> anyhow::Result<()> {
@@ -125,6 +140,9 @@ impl ConfigData {
         self.storage_account = settings_map.get(MENU_STORAGEACCOUNT.1).ok_or(anyhow::Error::msg("storage_account not found"))?.to_string();
         self.storage_access_token = settings_map.get(MENU_STORAGEACCESSTOKEN.1).ok_or(anyhow::Error::msg("storage_access_token not found"))?.to_string();
         self.post_message_trigger = settings_map.get(MENU_POSTMESSAGETRIGGER.1).ok_or(anyhow::Error::msg("post_message_trigger not found"))?.to_string();
+        self.autofocus_once = settings_map.get(MENU_AUTOFOCUSONCE.1).ok_or(anyhow::Error::msg("autofocus_once not found"))?.parse::<bool>()?;
+        self.status_report = settings_map.get(MENU_STATUSREPORT.1).ok_or(anyhow::Error::msg("status_report not found"))?.parse::<bool>()?;
+        self.status_report_interval = settings_map.get(MENU_STATUSREPORTINTERVAL.1).ok_or(anyhow::Error::msg("status_report_interval not found"))?.parse::<u32>()?;
         Ok(())
     }
     
@@ -147,6 +165,9 @@ impl ConfigData {
         default_config.push((MENU_STORAGEACCOUNT.0.to_string(), CONFIG.storage_account.to_string()));
         default_config.push((MENU_STORAGEACCESSTOKEN.0.to_string(), CONFIG.storage_access_token.to_string()));
         default_config.push((MENU_POSTMESSAGETRIGGER.0.to_string(), CONFIG.post_message_trigger.to_string()));
+        default_config.push((MENU_AUTOFOCUSONCE.0.to_string(), CONFIG.autofocus_once.to_string()));
+        default_config.push((MENU_STATUSREPORT.0.to_string(), CONFIG.status_report.to_string()));
+        default_config.push((MENU_STATUSREPORTINTERVAL.0.to_string(), CONFIG.status_report_interval.to_string()));
         default_config
     }
 
@@ -170,6 +191,9 @@ impl ConfigData {
         all_config.push((MENU_STORAGEACCOUNT.0.to_string(), self.storage_account.to_string()));
         all_config.push((MENU_STORAGEACCESSTOKEN.0.to_string(), self.storage_access_token.to_string()));
         all_config.push((MENU_POSTMESSAGETRIGGER.0.to_string(), self.post_message_trigger.to_string()));
+        all_config.push((MENU_AUTOFOCUSONCE.0.to_string(), self.autofocus_once.to_string()));
+        all_config.push((MENU_STATUSREPORT.0.to_string(), self.status_report.to_string()));
+        all_config.push((MENU_STATUSREPORTINTERVAL.0.to_string(), self.status_report_interval.to_string()));
         all_config
     }    
 }

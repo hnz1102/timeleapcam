@@ -25,6 +25,7 @@ struct QueryOpenAI {
 }
 
 struct PostImageAndMessage {
+    post_message_request: bool,
     post_url: String,
     post_to: String,
     post_message_trigger: String,
@@ -33,6 +34,9 @@ struct PostImageAndMessage {
     storage_account: String,
     storage_access_token: String,
     image_url: String,
+    post_message_string: String,
+    track_id: u32,
+    count: u32,
 }
 
 pub struct Monitoring {
@@ -56,6 +60,7 @@ impl Monitoring {
                 timeout: 20,
             })),
             postmsg: Arc::new(Mutex::new(PostImageAndMessage {
+                post_message_request: false,
                 post_url: String::from("https://api.line.me/v2/bot/message/push"),
                 post_to: String::from(""),
                 post_message_trigger: String::from(""),
@@ -64,6 +69,9 @@ impl Monitoring {
                 storage_account: String::from(""),
                 storage_access_token: String::from(""),
                 image_url: String::from(""),
+                post_message_string: String::from(""),
+                track_id: 0,
+                count: 0,
             })),
         }
     }
@@ -76,6 +84,7 @@ impl Monitoring {
             info!("Query thread started");
             loop {
                 let mut openai = openai_info.lock().unwrap();
+                let mut postmsg = post_message_info.lock().unwrap();
                 if openai.query_start {
                     let file_path = format!("/eMMC/T{}/I{}.jpg", openai.track_id, openai.count);
                     let buffer = imagefiles::read_file(Path::new(&file_path));
@@ -92,7 +101,6 @@ impl Monitoring {
                         }
                     };
                     // find string in reply
-                    let mut postmsg = post_message_info.lock().unwrap();
                     let port_trigger = postmsg.post_message_trigger.clone();
                     let found = match openai.reply.find(port_trigger.as_str()) {
                         Some(_) => true,
@@ -132,6 +140,38 @@ impl Monitoring {
                     }
                     openai.query_start = false;
                 }
+                if postmsg.post_message_request {
+                    let file_path = format!("/eMMC/T{}/I{}.jpg", postmsg.track_id, postmsg.count);
+                    let buffer = imagefiles::read_file(Path::new(&file_path));
+                    let filename = format!("t{}i{}.jpg", postmsg.track_id, postmsg.count);
+                    let image_url = post_image(postmsg.storage_url.clone(),
+                            postmsg.storage_account.clone(),
+                            postmsg.storage_access_token.clone(), filename, &buffer);
+                    let post_image_status = match image_url {
+                        Ok(url) => {
+                            postmsg.image_url = url;
+                            true
+                        }
+                        Err(e) => {
+                            info!("Failed to post image: {:?}", e);
+                            false
+                        }
+                    };
+                    if post_image_status {
+                        let result = post_message(postmsg.post_url.clone(), postmsg.post_to.clone(),
+                            postmsg.access_token.clone(), postmsg.image_url.clone(), postmsg.post_message_string.clone());
+                        match result {
+                            Ok(_) => {
+                                info!("Message posted successfully");
+                            }
+                            Err(e) => {
+                                info!("Failed to post message: {:?}", e);
+                            }
+                        }
+                    }
+                    postmsg.post_message_request = false;
+                }
+                drop(postmsg);
                 drop(openai);
                 thread::sleep(Duration::from_millis(100));
             }
@@ -167,6 +207,19 @@ impl Monitoring {
         let mut postmsg = self.postmsg.lock().unwrap();
         postmsg.storage_account = account;
         postmsg.storage_access_token = access_token;
+    }
+
+    pub fn post_message_request(&self, message: String, track_id: u32, count: u32) {
+        let mut postmsg = self.postmsg.lock().unwrap();
+        postmsg.post_message_request = true;
+        postmsg.post_message_string = message;
+        postmsg.track_id = track_id;
+        postmsg.count = count;
+    }
+
+    pub fn get_post_message_status(&self) -> bool {
+        let postmsg = self.postmsg.lock().unwrap();
+        postmsg.post_message_request
     }
 }
 

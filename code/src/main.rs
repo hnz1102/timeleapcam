@@ -164,53 +164,51 @@ fn main() -> anyhow::Result<()> {
     let mut current_resolution = camera::framesize_t_FRAMESIZE_QSXGA;
     if operating_mode {
         // operating mode
-        server_info.auto_capture = config_data.auto_capture;
-        server_info.capture_started = config_data.auto_capture;
         server_info.duration = config_data.duration;
         server_info.resolution = config_data.resolution;
         server_info.track_id = config_data.track_id;
-        server_info.timezone = config_data.timezone_offset;
-        server_info.idle_in_sleep_time = config_data.idle_in_sleep_time;
     }
     else {
         // wakeup
-        server_info.capture_started = config_data.auto_capture;
         server_info.duration = unsafe { DURATION_TIME };
         server_info.resolution = unsafe { CURRENT_RESOLUTION };
         server_info.track_id = unsafe { CURRENT_TRACK_ID };
-        server_info.timezone = config_data.timezone_offset;
-        server_info.idle_in_sleep_time = config_data.idle_in_sleep_time;
         current_resolution = server_info.resolution;
 
     }
+    server_info.auto_capture = config_data.auto_capture;
+    server_info.idle_in_sleep_time = config_data.idle_in_sleep_time;
+    server_info.timezone = config_data.timezone_offset;
+    server_info.autofocus_once = config_data.autofocus_once;
     server_info.last_capture_date_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_CAPTURE_TIME });
     server_info.query_prompt = config_data.query_prompt.clone();
     server_info.query_openai = config_data.query_openai;
     server_info.openai_model = config_data.model.clone();
-    // let mut current_resolution = server_info.resolution;
+    server_info.status_report = config_data.status_report;
+    server_info.status_report_interval = config_data.status_report_interval;
     let mut next_capture_time = UNIX_EPOCH + Duration::from_secs(unsafe { NEXT_CAPTURE_TIME });
     let mut capture_count = unsafe { IMAGE_COUNT_ID };
     let mut current_track_id = server_info.track_id;
     let mut current_duration = server_info.duration;
-    let operating_mode_start_time = SystemTime::now();
     let dt_utc : DateTime<Utc> = DateTime::<Utc>::from(next_capture_time);
     let fixed_offset = FixedOffset::east_opt(config_data.timezone_offset * 3600).unwrap();
     let dt_local = DateTime::<Local>::from_naive_utc_and_offset(dt_utc.naive_utc(), fixed_offset);
     info!("Next Capture Time: {}", dt_local.format("%Y-%m-%d %H:%M:%S"));
 
+    let status_post_need = server_info.status_report && (capture_count % server_info.status_report_interval) == 0;
     // current_settings into server_info
     server_info.leap_time = LeapTime {
-        year: dt_local.year() as u32,
-        month: dt_local.month(),
-        day: dt_local.day(),
-        hour: dt_local.hour(),
-        minute: dt_local.minute(),
-        second: dt_local.second(),
+        year: dt_local.year() as i32,
+        month: dt_local.month() as i32,
+        day: dt_local.day() as i32,
+        hour: dt_local.hour() as i32,
+        minute: dt_local.minute() as i32,
+        second: dt_local.second() as i32,
     };
 
     // wifi initialize
     let mut wifi_dev : Result<Box<EspWifi>, anyhow::Error> = Result::Err(anyhow::anyhow!("WiFi not connected"));
-    let mut server : Option<server::ControlServer> = match operating_mode || config_data.query_openai {
+    let mut server : Option<server::ControlServer> = match operating_mode || config_data.query_openai || status_post_need {
         true => {
             wifi_dev = wifi::wifi_connect(peripherals.modem, &config_data.wifi_ssid, &config_data.wifi_psk);
             match &wifi_dev {
@@ -326,6 +324,7 @@ fn main() -> anyhow::Result<()> {
         config_data.auto_capture = false;
     }
 
+    let mut one_shot = false;
     loop {
         // imagefiles::list_files(Path::new("/eMMC"));
         if config_data.auto_capture || unsafe { DEEP_SLEEP_AUTO_CAPTURE } {
@@ -355,6 +354,9 @@ fn main() -> anyhow::Result<()> {
                 config_data.query_openai = server_info.query_openai;
                 config_data.query_prompt = server_info.query_prompt.clone();
                 config_data.model = server_info.openai_model.clone();
+                config_data.autofocus_once = server_info.autofocus_once;
+                config_data.status_report = server_info.status_report;
+                config_data.status_report_interval = server_info.status_report_interval;
                 let save_config = config_data.get_all_config();
                 let toml_cfg = convert_config_to_toml_string(&save_config);
                 match nvs.set_str("config", toml_cfg.as_str()) {
@@ -362,15 +364,18 @@ fn main() -> anyhow::Result<()> {
                     Err(ref e) => { info!("Set default config failed {:?}", e); }
                 }
                 server.as_mut().unwrap().set_server_info(server_info.clone());
-                thread::sleep(Duration::from_millis(1000));
-                unsafe {
-                    esp_idf_sys::esp_restart();
-                }
+                // thread::sleep(Duration::from_millis(1000));
+                // unsafe {
+                //     esp_idf_sys::esp_restart();
+                // }
             }
+            one_shot = server.as_mut().unwrap().get_one_shot();
             current_duration = server_info.duration;
             server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
-            if server_info.latest_access_time.elapsed().unwrap().as_secs() > config_data.idle_in_sleep_time as u64 {
-                if operating_mode_start_time.elapsed().unwrap().as_secs() > config_data.idle_in_sleep_time as u64 {
+            if !server_info.capture_started {
+                // when idle, check last access time
+                let last_access_time = server_info.last_access_time.elapsed().unwrap().as_secs();
+                if last_access_time > config_data.idle_in_sleep_time as u64 {
                     operating_mode = false;
                     emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
                     deep_and_light_sleep_start(SleepMode::SleepModeDeep, 0);
@@ -378,16 +383,19 @@ fn main() -> anyhow::Result<()> {
             }    
         }
 
-        // let key_event = touchpad.get_key_event_and_clear();
-        // for key in key_event {
-        //     match key {
-        //         KeyEvent::CenterKeyUp => {
-        //             operating_mode = false;
-        //         },
-        //         _ => {
-        //         }
-        //     }
-        // }
+        let key_event = touchpad.get_key_event_and_clear();
+        for key in key_event {
+            match key {
+                KeyEvent::CenterKeyUp => {
+                    one_shot = true;
+                },
+                _ => {
+                }
+            }
+        }
+        if operating_mode && one_shot {
+            server_info.capture_started = true;
+        }
     
         if server_info.resolution != current_resolution {
             info!("Resolution changed: {} -> {}", current_resolution, server_info.resolution);
@@ -401,9 +409,15 @@ fn main() -> anyhow::Result<()> {
                 current_track_id = server_info.track_id;
                 capture_count = 0;
             }
-            if capture_count == 0 {
-                // auto focus trigger
+            if server_info.autofocus_once {
+                if capture_count == 0 {
+                    capture.autofocus_request();
+                }
+            }
+            else {
                 capture.autofocus_request();
+            }
+            if capture_count == 0 {
                 next_capture_time = SystemTime::now();
             }
             info!("Capture Track ID: {} Count: {} Resolution: {}", current_track_id, capture_count, current_resolution);
@@ -416,7 +430,7 @@ fn main() -> anyhow::Result<()> {
                 thread::sleep(Duration::from_millis(10));
             }
             if server_info.query_openai {
-                monitoring_thread.set_query_start(config_data.query_prompt.clone(), current_track_id, capture_count);
+                monitoring_thread.set_query_start(server_info.query_prompt.clone(), current_track_id, capture_count);
                 loop {
                     if !monitoring_thread.get_query_status() {
                         let reply = monitoring_thread.get_query_reply();
@@ -429,9 +443,32 @@ fn main() -> anyhow::Result<()> {
             let capture_info = capture.get_capture_info();
             if capture_info.status {
                 info!("Write done {}: width:{} height:{} image_size:{}", capture_count, capture_info.width, capture_info.height, capture_info.size);
+                if server_info.status_report && (capture_count % server_info.status_report_interval) == 0 {
+                    // capture time
+                    let dt_utc : DateTime<Utc> = DateTime::<Utc>::from(SystemTime::now());
+                    let fixed_offset = FixedOffset::east_opt(server_info.timezone * 3600).unwrap();
+                    let dt_local = DateTime::<Local>::from_naive_utc_and_offset(dt_utc.naive_utc(), fixed_offset);
+                    let capture_time = dt_local.format("%Y-%m-%d %H:%M:%S").to_string();
+                    let message = format!("STATUS REPORT: TID: {} CNT: {} TIME: {}",
+                        current_track_id, capture_count, capture_time);
+                    monitoring_thread.post_message_request(message, current_track_id, capture_count);
+                    loop {
+                        if !monitoring_thread.get_post_message_status() {
+                            break;
+                        }
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                }    
                 server_info.last_capture_date_time = SystemTime::now();
                 capture_count += 1;
                 server_info.current_capture_id = capture_count;
+            }
+            if one_shot {
+                server_info.capture_started = false;
+                capture_count = 0;
+                server.as_mut().unwrap().set_one_shot_completed();
+                thread::sleep(Duration::from_millis(100));
+                continue;
             }
 
             next_capture_time = get_next_wake_time(server_info.leap_time, server_info.timezone, next_capture_time, server_info.duration);
@@ -491,31 +528,93 @@ fn get_next_wake_time(lt: LeapTime, timezone: i32, mut next_capture_time: System
         // parse now_with_offset to string
         let now_str = now_with_offset.format("%Y-%m-%d %H:%M:%S").to_string();
         info!("Now with offset: {}", now_str);
+        // parse now_str to year, day, month, hour, minute, second
+        let now_year = now_with_offset.year();
+        let now_month = now_with_offset.month();
+        let now_day = now_with_offset.day();
+        let now_hour = now_with_offset.hour();
         let now_naive = now_with_offset.naive_local();
-        if lt.year != 2024 && lt.month != 1 && lt.day != 1 {
-            // LeapTime is in the future, get duration from now to LeapTime. leap_time is local time.
-            let leap_time = NaiveDate::from_ymd_opt(lt.year as i32, lt.month, lt.day).unwrap()
-            .and_hms_opt(lt.hour, lt.minute, lt.second).unwrap().and_local_timezone(offset).unwrap();
+        let mut lt_hour = lt.hour;
+        let mut lt_minute = lt.minute;
+        let lt_day = lt.day;
+        if lt_day > 0 {
+            // LeapTime is specific day
+            if lt_hour < 0 { lt_hour = 0; }
+            if lt_minute < 0 { lt_minute = 0; }
+            let leap_time = NaiveDate::from_ymd_opt(now_year, now_month, lt_day as u32).unwrap()
+                .and_hms_opt(lt_hour as u32, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
             if now_naive < leap_time.naive_local() {
                 // convert leap_time to UTC as DateTime
                 next_capture_time = leap_time.into();
             }
+            else {
+                // LeapTime is interval time, get duration from now to LeapTime
+                let mut next_yaer = now_year;
+                let mut next_month = now_month;
+                if now_month == 12 {
+                    next_yaer += 1;
+                    next_month = 1;
+                }
+                else {
+                    next_month += 1;
+                }
+                let today_leap_time = NaiveDate::from_ymd_opt(now_year, now_month, lt_day as u32)
+                    .unwrap().and_hms_opt(lt_hour as u32, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                if now_naive < today_leap_time.naive_local() {
+                    // today
+                    next_capture_time = today_leap_time.into();
+                }
+                else {
+                    // next month
+                    let next_month_leap_time = NaiveDate::from_ymd_opt(next_yaer, next_month, lt_day as u32)
+                        .unwrap().and_hms_opt(lt_hour as u32, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                    next_capture_time = next_month_leap_time.into();
+                }
+            }
         }
         else {
-            // LeapTime is interval time, get duration from now to LeapTime
-            let today = now_naive.date();
-            let tomorrow = today + ChronoDuration::days(1);
-            let today_leap_time = NaiveDate::from_ymd_opt(today.year(), today.month(), today.day())
-                .unwrap().and_hms_opt(lt.hour, lt.minute, lt.second).unwrap().and_local_timezone(offset).unwrap();
-            if now_naive < today_leap_time.naive_local() {
-                // today
-                next_capture_time = today_leap_time.into();
+            if lt.hour >= 0 {
+                // LeapTime is specific time
+                if lt_minute < 0 { lt_minute = 0; }
+                let leap_time = NaiveDate::from_ymd_opt(now_year, now_month, now_day)
+                    .unwrap().and_hms_opt(lt_hour as u32, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                if now_naive < leap_time.naive_local() {
+                    // convert leap_time to UTC as DateTime
+                    next_capture_time = leap_time.into();
+                }
+                else {
+                    // LeapTime is interval time, get duration from now to LeapTime
+                    let tomorrow = now_naive.date() + ChronoDuration::days(1);
+                    let tomorrow_leap_time = NaiveDate::from_ymd_opt(tomorrow.year(), tomorrow.month(), tomorrow.day())
+                        .unwrap().and_hms_opt(lt_hour as u32, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                    next_capture_time = tomorrow_leap_time.into();
+                }
             }
             else {
-                // tomorrow
-                let tomorrow_leap_time = NaiveDate::from_ymd_opt(tomorrow.year(), tomorrow.month(), tomorrow.day())
-                    .unwrap().and_hms_opt(lt.hour, lt.minute, lt.second).unwrap().and_local_timezone(offset).unwrap();
-                next_capture_time = tomorrow_leap_time.into();
+                if lt.minute > 0 {
+                    // LeapTime is specific time 
+                    let leap_time = NaiveDate::from_ymd_opt(now_year, now_month, now_day)
+                        .unwrap().and_hms_opt(now_hour, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                    if now_naive < leap_time.naive_local() {
+                        // convert leap_time to UTC as DateTime
+                        next_capture_time = leap_time.into();
+                    }
+                    else {
+                        // LeapTime is interval time, get duration from now to LeapTime
+                        if now_hour == 23 {
+                            let tomorrow = now_naive.date() + ChronoDuration::days(1);
+                            let tomorrow_leap_time = NaiveDate::from_ymd_opt(tomorrow.year(), tomorrow.month(), tomorrow.day())
+                                .unwrap().and_hms_opt(0, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                            next_capture_time = tomorrow_leap_time.into();
+                        }
+                        else {
+                            let next_hour = now_hour + 1;
+                            let next_leap_time = NaiveDate::from_ymd_opt(now_year, now_month, now_day)
+                                .unwrap().and_hms_opt(next_hour, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                            next_capture_time = next_leap_time.into();
+                        }
+                    }
+                }
             }
         }
     }
