@@ -69,6 +69,8 @@ pub struct ControlServerInfo {
     pub autofocus_once: bool,
     pub status_report: bool,
     pub status_report_interval: u32,
+    pub last_posted_date_time: SystemTime,
+    pub post_interval: u32,
 }
 
 impl ControlServerInfo {
@@ -103,6 +105,8 @@ impl ControlServerInfo {
             autofocus_once: false,
             status_report: false,
             status_report_interval: 60,
+            last_posted_date_time: SystemTime::now(),
+            post_interval: 3600,
         }
     }    
 }
@@ -649,11 +653,15 @@ impl ControlServer {
             let server_info = server_info.lock().unwrap();
             // state is capture_started status and rssi, battery_voltage values send as json format
             let fixed_offset = FixedOffset::east_opt(server_info.timezone * 3600).unwrap();
+            // last capture date time
             let last_capture_date_time_utc: DateTime<Local> = server_info.last_capture_date_time.into();
-            // adust timezone
             let last_capture_date_time = DateTime::<Local>::from_naive_utc_and_offset(last_capture_date_time_utc.naive_utc(), fixed_offset);
             let lcdt_str = last_capture_date_time.format("%Y-%m-%d %H:%M:%S").to_string();
-            let state_json = format!("{{\"state\": \"{}\", \"rssi\": {}, \"battery_voltage\": {:.2}, \"capture_id\": {}, \"last_capture_date_time\": \"{}\"}}",
+            // last posted date time
+            let last_posted_date_time_utc: DateTime<Local> = server_info.last_posted_date_time.into();
+            let last_posted_date_time = DateTime::<Local>::from_naive_utc_and_offset(last_posted_date_time_utc.naive_utc(), fixed_offset);
+            let lpdt_str = last_posted_date_time.format("%Y-%m-%d %H:%M:%S").to_string();
+            let state_json = format!("{{\"state\": \"{}\", \"rssi\": {}, \"battery_voltage\": {:.2}, \"capture_id\": {}, \"last_capture_date_time\": \"{}\", \"last_posted_date_time\": \"{}\"}}",
                                      if server_info.capture_started {
                                          "start"
                                      } else {
@@ -663,6 +671,7 @@ impl ControlServer {
                                      server_info.battery_voltage,
                                      server_info.current_capture_id,
                                      if server_info.last_capture_date_time == SystemTime::UNIX_EPOCH { "N/A" } else { &lcdt_str },
+                                     if server_info.last_posted_date_time == SystemTime::UNIX_EPOCH { "N/A" } else { &lpdt_str },
                                      );
             response?.write_all(state_json.as_bytes())?;
             Ok::<(), EspIOError>(())
@@ -814,6 +823,14 @@ impl ControlServer {
                 }
             };
             server_info.status_report_interval = status_report_interval;
+            // post interval
+            let post_interval = match json["post_interval"].as_u64() {
+                Some(post_interval) => post_interval as u32,
+                None => {
+                    3600
+                }
+            };
+            server_info.post_interval = post_interval;
             server_info.need_to_save = true;
             server_info.last_access_time = SystemTime::now();
             let response = request.into_ok_response();
@@ -827,7 +844,7 @@ impl ControlServer {
             let response = request.into_ok_response();
             let server_info = server_info_current_config.clone();
             let server_info = server_info.lock().unwrap();
-            let config_json = format!("{{\"resolution\": \"{}\", \"trackid\": {}, \"duration\": {}, \"timezone\": {}, \"idlesleep\": {}, \"autocapture\": {}, \"queryopenai\": {}, \"queryprompt\": \"{}\", \"openai_model\": \"{}\", \"autofocus_once\": {}, \"status_report\": {}, \"status_report_interval\": {}}}",
+            let config_json = format!("{{\"resolution\": \"{}\", \"trackid\": {}, \"duration\": {}, \"timezone\": {}, \"idlesleep\": {}, \"autocapture\": {}, \"queryopenai\": {}, \"queryprompt\": \"{}\", \"openai_model\": \"{}\", \"autofocus_once\": {}, \"status_report\": {}, \"status_report_interval\": {}, \"post_interval\": {}}}",
                                       ACCEPTABLE_RESOLUTIONS.iter()
                                       .find(|(_, value)| value == &server_info.resolution)
                                       .map(|(name, _)| *name).unwrap_or("VGA"),
@@ -842,6 +859,7 @@ impl ControlServer {
                                       server_info.autofocus_once,
                                       server_info.status_report,
                                       server_info.status_report_interval,
+                                      server_info.post_interval,
                                     );
             response?.write_all(config_json.as_bytes())?;
             Ok::<(), EspIOError>(())
@@ -899,6 +917,16 @@ impl ControlServer {
     pub fn set_one_shot_completed(&self) {
         let mut server_info = self.server_info.lock().unwrap();
         server_info.one_shot_completed = true;
+    }
+
+    pub fn set_last_capture_date_time(&self, last_capture_date_time: SystemTime) {
+        let mut server_info = self.server_info.lock().unwrap();
+        server_info.last_capture_date_time = last_capture_date_time;
+    }
+
+    pub fn set_last_posted_date_time(&self, last_posted_date_time: SystemTime) {
+        let mut server_info = self.server_info.lock().unwrap();
+        server_info.last_posted_date_time = last_posted_date_time;
     }
 }
 
@@ -1551,7 +1579,12 @@ fn status_html() -> String {
 <label for="lastCaptureDateTime">Last Capture:</label></div>
 <div class="left"><span id="lastCaptureDateTime"><span></div>
 </div>
-</div>
+
+<div class="clear">
+<div class="left">
+<label for="lastpostedDateTime">Posted Time:</label></div>
+<div class="left"><span id="lastpostedDateTime"><span></div>
+</div></div>
 
 <script>
 
@@ -1568,6 +1601,7 @@ function get_state () {{
             document.getElementById("wifiRSSI").innerHTML = wifiRSSI+"dBm";
             document.getElementById("captureID").innerHTML = status.capture_id;
             document.getElementById("lastCaptureDateTime").innerHTML = status.last_capture_date_time;
+            document.getElementById("lastpostedDateTime").innerHTML = status.last_posted_date_time;
         }}
         else if (this.readyState == 4 && this.status == 0) {{
             document.getElementById("camState").innerHTML = "Not Connected";
@@ -1770,12 +1804,21 @@ fn config_html() -> String {
 <option value="false">False</option>
 </select>
 </div></div>
+
 <div class="clear">
 <div class="left">
 <label for="status_report">Report Interval:</label></div>
 <div class="left">
-<input type="number" id="status_report_interval" value="300">
+<input type="number" id="status_report_interval" value="300">Times
 </div></div>
+
+<div class="clear">
+<div class="left">
+<label for="post_interval">Post Interval(sec):</label></div>
+<div class="left">
+<input type="number" id="post_interval" value="300">
+</div></div>
+
 <div class="clear"> </div>
 <div class="center">
 <button class="btn save" onclick="saveConfig()">Save</button>
@@ -1793,6 +1836,7 @@ function saveConfig() {{
     var openai_element = document.getElementById("openaiSelect");
     var status_report_element = document.getElementById("status_report");
     var status_report_interval_element = document.getElementById("status_report_interval");
+    var post_interval_element = document.getElementById("post_interval");
     var xhr = new XMLHttpRequest();
     xhr.open("POST", "/config", true);
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -1806,7 +1850,8 @@ function saveConfig() {{
         "openai_model": openai_element.value,
         "autofocus_once": document.getElementById("autofocusOnce").value,
         "status_report": status_report_element.value,
-        "status_report_interval": status_report_interval_element.value - 0
+        "status_report_interval": status_report_interval_element.value - 0,
+        "post_interval": post_interval_element.value - 0
     }}));
 }}
 
@@ -1826,6 +1871,7 @@ function getConfig() {{
             document.getElementById("autofocusOnce").value = config.autofocus_once;
             document.getElementById("status_report").value = config.status_report;
             document.getElementById("status_report_interval").value = config.status_report_interval;
+            document.getElementById("post_interval").value = config.post_interval;
         }}
     }};
     xhttp.open("GET", "/config", true);

@@ -43,6 +43,8 @@ pub struct Config {
     status_report: &'static str,
     #[default("600")]
     status_report_interval: &'static str,
+    #[default("3600")]
+    post_interval: &'static str,
 }
 
 const MENU_SSID: (&str, &str) = ("SSID", "ssid");
@@ -65,6 +67,7 @@ const MENU_POSTMESSAGETRIGGER: (&str, &str) = ("POSTMESSAGETRIGGER", "postmessag
 const MENU_AUTOFOCUSONCE: (&str, &str) = ("AUTOFOCUSONCE", "autofocusonce");
 const MENU_STATUSREPORT: (&str, &str) = ("STATUSREPORT", "statusreport");
 const MENU_STATUSREPORTINTERVAL: (&str, &str) = ("STATUSREPORTINTERVAL", "statusreportinterval");
+const MENU_POSTINTERVAL: (&str, &str) = ("POSTINTERVAL", "postinterval");
 
 #[derive(Debug)]
 pub struct ConfigData {
@@ -88,6 +91,7 @@ pub struct ConfigData {
     pub autofocus_once: bool,
     pub status_report: bool,
     pub status_report_interval: u32,
+    pub post_interval: u32,
 }
 
 impl ConfigData {
@@ -113,6 +117,7 @@ impl ConfigData {
             autofocus_once: false,
             status_report: false,
             status_report_interval: 0,
+            post_interval: 0,
         }
     }
     pub fn load_config(&mut self, nvs_value: Option<&str>) -> anyhow::Result<()> {
@@ -143,6 +148,7 @@ impl ConfigData {
         self.autofocus_once = settings_map.get(MENU_AUTOFOCUSONCE.1).ok_or(anyhow::Error::msg("autofocus_once not found"))?.parse::<bool>()?;
         self.status_report = settings_map.get(MENU_STATUSREPORT.1).ok_or(anyhow::Error::msg("status_report not found"))?.parse::<bool>()?;
         self.status_report_interval = settings_map.get(MENU_STATUSREPORTINTERVAL.1).ok_or(anyhow::Error::msg("status_report_interval not found"))?.parse::<u32>()?;
+        self.post_interval = settings_map.get(MENU_POSTINTERVAL.1).ok_or(anyhow::Error::msg("post_interval not found"))?.parse::<u32>()?;
         Ok(())
     }
     
@@ -168,6 +174,7 @@ impl ConfigData {
         default_config.push((MENU_AUTOFOCUSONCE.0.to_string(), CONFIG.autofocus_once.to_string()));
         default_config.push((MENU_STATUSREPORT.0.to_string(), CONFIG.status_report.to_string()));
         default_config.push((MENU_STATUSREPORTINTERVAL.0.to_string(), CONFIG.status_report_interval.to_string()));
+        default_config.push((MENU_POSTINTERVAL.0.to_string(), CONFIG.post_interval.to_string()));
         default_config
     }
 
@@ -194,6 +201,7 @@ impl ConfigData {
         all_config.push((MENU_AUTOFOCUSONCE.0.to_string(), self.autofocus_once.to_string()));
         all_config.push((MENU_STATUSREPORT.0.to_string(), self.status_report.to_string()));
         all_config.push((MENU_STATUSREPORTINTERVAL.0.to_string(), self.status_report_interval.to_string()));
+        all_config.push((MENU_POSTINTERVAL.0.to_string(), self.post_interval.to_string()));
         all_config
     }    
 }

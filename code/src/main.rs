@@ -63,6 +63,9 @@ static mut CURRENT_TRACK_ID: u32 = 0;
 #[link_section = ".rtc.data"]
 static mut LAST_CAPTURE_TIME: u64 = 0;
 
+#[link_section = ".rtc.data"]
+static mut LAST_POSTED_TIME: u64 = 0;
+
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
@@ -181,11 +184,13 @@ fn main() -> anyhow::Result<()> {
     server_info.timezone = config_data.timezone_offset;
     server_info.autofocus_once = config_data.autofocus_once;
     server_info.last_capture_date_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_CAPTURE_TIME });
+    server_info.last_posted_date_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_POSTED_TIME });
     server_info.query_prompt = config_data.query_prompt.clone();
     server_info.query_openai = config_data.query_openai;
     server_info.openai_model = config_data.model.clone();
     server_info.status_report = config_data.status_report;
     server_info.status_report_interval = config_data.status_report_interval;
+    server_info.post_interval = config_data.post_interval;
     let mut next_capture_time = UNIX_EPOCH + Duration::from_secs(unsafe { NEXT_CAPTURE_TIME });
     let mut capture_count = unsafe { IMAGE_COUNT_ID };
     let mut current_track_id = server_info.track_id;
@@ -318,6 +323,7 @@ fn main() -> anyhow::Result<()> {
         config_data.post_access_token.clone(), config_data.post_message_trigger.clone());
     monitoring_thread.set_storage_access_token(config_data.storage_account.clone(),
         config_data.storage_access_token.clone());
+    monitoring_thread.set_last_posted_date_time(server_info.last_posted_date_time, server_info.post_interval);
     monitoring_thread.start();
     if operating_mode {
         unsafe { DEEP_SLEEP_AUTO_CAPTURE = false; }
@@ -330,6 +336,8 @@ fn main() -> anyhow::Result<()> {
         if config_data.auto_capture || unsafe { DEEP_SLEEP_AUTO_CAPTURE } {
             server_info.capture_started = true;
         }
+        // read battery voltage
+        let battery_voltage : f32 =  adc.read(&mut adc_pin).unwrap() as f32 * 2.0 / 1000.0;
 
         if operating_mode {
             let rssi = wifi::get_rssi();
@@ -337,8 +345,6 @@ fn main() -> anyhow::Result<()> {
                 wifi_reconnect(&mut wifi_dev.as_mut().unwrap());
             }
             server.as_mut().unwrap().set_current_rssi(rssi);
-            // read battery voltage
-            let battery_voltage : f32 =  adc.read(&mut adc_pin).unwrap() as f32 * 2.0 / 1000.0;
             server.as_mut().unwrap().set_current_battery_voltage(battery_voltage);
             server_info = server.as_mut().unwrap().get_server_info().clone();
 
@@ -357,6 +363,7 @@ fn main() -> anyhow::Result<()> {
                 config_data.autofocus_once = server_info.autofocus_once;
                 config_data.status_report = server_info.status_report;
                 config_data.status_report_interval = server_info.status_report_interval;
+                config_data.post_interval = server_info.post_interval;
                 let save_config = config_data.get_all_config();
                 let toml_cfg = convert_config_to_toml_string(&save_config);
                 match nvs.set_str("config", toml_cfg.as_str()) {
@@ -439,6 +446,11 @@ fn main() -> anyhow::Result<()> {
                     }
                     thread::sleep(Duration::from_millis(10));
                 }
+                if monitoring_thread.get_posted_status() {
+                    server_info.last_posted_date_time = SystemTime::now();
+                    server.as_mut().unwrap().set_last_posted_date_time(server_info.last_posted_date_time);
+                    monitoring_thread.set_last_posted_date_time(server_info.last_posted_date_time, server_info.post_interval);
+                }
             }
             let capture_info = capture.get_capture_info();
             if capture_info.status {
@@ -449,8 +461,8 @@ fn main() -> anyhow::Result<()> {
                     let fixed_offset = FixedOffset::east_opt(server_info.timezone * 3600).unwrap();
                     let dt_local = DateTime::<Local>::from_naive_utc_and_offset(dt_utc.naive_utc(), fixed_offset);
                     let capture_time = dt_local.format("%Y-%m-%d %H:%M:%S").to_string();
-                    let message = format!("STATUS REPORT: TID: {} CNT: {} TIME: {}",
-                        current_track_id, capture_count, capture_time);
+                    let message = format!("STATUS REPORT: {}/{} {} {}V {}dBm", 
+                        current_track_id, capture_count, capture_time, battery_voltage, wifi::get_rssi());
                     monitoring_thread.post_message_request(message, current_track_id, capture_count);
                     loop {
                         if !monitoring_thread.get_post_message_status() {
@@ -460,6 +472,7 @@ fn main() -> anyhow::Result<()> {
                     }
                 }    
                 server_info.last_capture_date_time = SystemTime::now();
+                server.as_mut().unwrap().set_last_capture_date_time(server_info.last_capture_date_time);
                 capture_count += 1;
                 server_info.current_capture_id = capture_count;
             }
@@ -501,6 +514,7 @@ fn main() -> anyhow::Result<()> {
                         CURRENT_RESOLUTION = current_resolution;
                         CURRENT_TRACK_ID = current_track_id;
                         LAST_CAPTURE_TIME = server_info.last_capture_date_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        LAST_POSTED_TIME = server_info.last_posted_date_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                     }
                     emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
                     deep_and_light_sleep_start(SleepMode::SleepModeDeep, sleep_time.as_secs());

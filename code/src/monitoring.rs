@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::thread;
 use embedded_svc::http::Method;
 use esp_idf_hal::io::Write;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use std::path::Path;
 
 use crate::imagefiles;
@@ -37,6 +37,9 @@ struct PostImageAndMessage {
     post_message_string: String,
     track_id: u32,
     count: u32,
+    posted_status: bool,
+    last_posted_date_time: SystemTime,
+    post_interval: u32,
 }
 
 pub struct Monitoring {
@@ -72,6 +75,9 @@ impl Monitoring {
                 post_message_string: String::from(""),
                 track_id: 0,
                 count: 0,
+                posted_status: false,
+                last_posted_date_time: SystemTime::now(),
+                post_interval: 0,
             })),
         }
     }
@@ -86,55 +92,61 @@ impl Monitoring {
                 let mut openai = openai_info.lock().unwrap();
                 let mut postmsg = post_message_info.lock().unwrap();
                 if openai.query_start {
-                    let file_path = format!("/eMMC/T{}/I{}.jpg", openai.track_id, openai.count);
-                    let buffer = imagefiles::read_file(Path::new(&file_path));
-                    let result = query_to_openai(openai.api_key.clone(), openai.model.clone(),
-                        openai.prompt.clone(), openai.detail.clone(), openai.max_tokens,
-                        openai.timeout, &buffer);
-                    let openai_status = match result {
-                        Ok(reply) => {
-                            openai.reply = reply;
-                            true
-                        }
-                        Err(_e) => {
-                            false
-                        }
-                    };
-                    // find string in reply
-                    let port_trigger = postmsg.post_message_trigger.clone();
-                    let found = match openai.reply.find(port_trigger.as_str()) {
-                        Some(_) => true,
-                        None => {
-                            info!("No {} found in reply.", port_trigger.as_str());
-                            false
-                        }
-                    };
-                    let mut post_image_status = false;
-                    if openai_status && found {
-                        let filename = format!("t{}i{}.jpg", openai.track_id, openai.count);
-                        let image_url = post_image(postmsg.storage_url.clone(),
-                                postmsg.storage_account.clone(),
-                                postmsg.storage_access_token.clone(), filename, &buffer);
-                        post_image_status = match image_url {
-                            Ok(url) => {
-                                postmsg.image_url = url;
+                    if postmsg.post_interval > 0 && postmsg.last_posted_date_time.elapsed().unwrap().as_secs() < postmsg.post_interval as u64 {
+                        info!("Post interval not reached");
+                    }
+                    else {
+                        let file_path = format!("/eMMC/T{}/I{}.jpg", openai.track_id, openai.count);
+                        let buffer = imagefiles::read_file(Path::new(&file_path));
+                        let result = query_to_openai(openai.api_key.clone(), openai.model.clone(),
+                            openai.prompt.clone(), openai.detail.clone(), openai.max_tokens,
+                            openai.timeout, &buffer);
+                        let openai_status = match result {
+                            Ok(reply) => {
+                                openai.reply = reply;
                                 true
                             }
-                            Err(e) => {
-                                info!("Failed to post image: {:?}", e);
+                            Err(_e) => {
                                 false
                             }
                         };
-                    }
-                    if post_image_status && found {
-                        let result = post_message(postmsg.post_url.clone(), postmsg.post_to.clone(),
-                            postmsg.access_token.clone(), postmsg.image_url.clone(), openai.reply.clone());
-                        match result {
-                            Ok(_) => {
-                                info!("Message posted successfully");
+                        // find string in reply
+                        let port_trigger = postmsg.post_message_trigger.clone();
+                        let found = match openai.reply.find(port_trigger.as_str()) {
+                            Some(_) => true,
+                            None => {
+                                info!("No {} found in reply.", port_trigger.as_str());
+                                false
                             }
-                            Err(e) => {
-                                info!("Failed to post message: {:?}", e);
+                        };
+                        let mut post_image_status = false;
+                        if openai_status && found {
+                            let filename = format!("t{}i{}.jpg", openai.track_id, openai.count);
+                            let image_url = post_image(postmsg.storage_url.clone(),
+                                    postmsg.storage_account.clone(),
+                                    postmsg.storage_access_token.clone(), filename, &buffer);
+                            post_image_status = match image_url {
+                                Ok(url) => {
+                                    postmsg.image_url = url;
+                                    true
+                                }
+                                Err(e) => {
+                                    info!("Failed to post image: {:?}", e);
+                                    false
+                                }
+                            };
+                        }
+                        if post_image_status && found {
+                            let result = post_message(postmsg.post_url.clone(), postmsg.post_to.clone(),
+                                postmsg.access_token.clone(), postmsg.image_url.clone(), openai.reply.clone());
+                            match result {
+                                Ok(_) => {
+                                    postmsg.posted_status = true;
+                                    info!("Message posted successfully");
+                                }
+                                Err(e) => {
+                                    info!("Failed to post message: {:?}", e);
+                                }
                             }
                         }
                     }
@@ -220,6 +232,17 @@ impl Monitoring {
     pub fn get_post_message_status(&self) -> bool {
         let postmsg = self.postmsg.lock().unwrap();
         postmsg.post_message_request
+    }
+
+    pub fn get_posted_status(&self) -> bool {
+        let postmsg = self.postmsg.lock().unwrap();
+        postmsg.posted_status
+    }
+
+    pub fn set_last_posted_date_time(&self, datetime: SystemTime, post_interval: u32) {
+        let mut postmsg = self.postmsg.lock().unwrap();
+        postmsg.last_posted_date_time = datetime;
+        postmsg.post_interval = post_interval;
     }
 }
 
