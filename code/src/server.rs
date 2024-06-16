@@ -534,6 +534,102 @@ impl ControlServer {
             Ok::<(), EspIOError>(())
         }).unwrap();
 
+        // get image by GET method /data?trackid=1&fromframe=0&toframe=10
+        let server_info_get_image = self.server_info.clone();
+        self.http_server.fn_handler("/images", Method::Get, move |request| {
+            // read all request uri
+            let uri = request.uri();
+            // info!("URI: {:?}", uri);
+            let uri_str = format!("http://localhost{}", uri);
+            let parsed_uri = url::Url::parse(&uri_str);
+            let args = match parsed_uri {
+                Ok(parsed_uri) => {
+                    let args = parsed_uri.query_pairs()
+                    .map(|(key, value)| (key.into_owned(), value.into_owned()))
+                    .collect::<HashMap<String, String>>();
+                    info!("Args: {:?}", args);        
+                    // info!("Parsed URI: {:?}", parsed_uri);
+                    args
+                }
+                Err(e) => {
+                    info!("Failed to parse URI: {:?}", e);
+                    HashMap::new()
+                }
+            };
+            // get trace_id
+            let trackid = || -> Option<u32> {
+                for (key, value) in &args {
+                    if key == "trackid" {
+                        return Some(value.parse().unwrap());
+                    }
+                }
+                None
+            };
+            if trackid().is_none() {
+                info!("trackid not found");
+                let response = request.into_ok_response();
+                response?.write_all("No frame".as_bytes())?;
+                return Ok::<(), EspIOError>(());
+            }
+            // get fromframe
+            let fromframe : i32 = {
+                let mut intval = 0;
+                for (key, value) in &args {
+                    if key == "fromframe" {
+                        intval = value.parse().unwrap();
+                        break;
+                    }
+                }
+                intval
+            };
+            // get toframe
+            let mut toframe : i32 = {
+                let mut intval = -1;
+                for (key, value) in &args {
+                    if key == "toframe" {
+                        intval = value.parse().unwrap();
+                        break;
+                    }
+                }
+                intval
+            };
+            if toframe > 0 && fromframe > toframe {
+                toframe = fromframe;
+            }
+            let headers = [
+                ("Content-Type", "multipart/x-mixed-replace; boundary=--timeleapcamboundary"),
+                ("Content-Disposition", "attachment; filename=\"image.jpeg\""),
+            ];
+            let mut response = request.into_response(200, Some("OK"), &headers).unwrap();
+            let mut count = fromframe;
+            let server_info_clone = server_info_get_image.clone();
+            let track_id = trackid().unwrap();
+            loop {
+                if toframe >= 0 && count > toframe {
+                    break;
+                }
+                let file_path = format!("/eMMC/T{}/I{}.jpg", track_id, count);
+                let buffer = imagefiles::read_file(Path::new(&file_path));
+                if buffer.len() == 0 {
+                    break;
+                }
+                let mut server_info = server_info_clone.lock().unwrap();
+                server_info.last_access_time = SystemTime::now();
+                drop(server_info);
+                response.write_all("--timeleapcamboundary\r\n".as_bytes())?;
+                response.write_all("Content-Type: image/jpeg\r\n".as_bytes())?;
+                let filename = format!("t{}i{}.jpg", track_id, count);
+                response.write_all(format!("Content-Disposition: attachment; filename={}\r\n", filename).as_bytes())?;
+                let context_length = format!("Content-Length: {}\r\n\r\n", buffer.len());
+                response.write_all(context_length.as_bytes())?;
+                let base64 = base64::encode(&buffer);
+                response.write_all(base64.as_bytes())?;
+                response.write_all("\r\n".as_bytes())?;
+                count += 1;
+            }
+            Ok::<(), EspIOError>(())
+        }).unwrap();
+
         // index.html by root path
         let server_info_status = self.server_info.clone();
         self.http_server.fn_handler("/", Method::Get, move |request| {
@@ -940,13 +1036,16 @@ fn image_html() -> String {
     <style>
     html {{font-family: Times New Roman; display: inline-block; text-align: center;}}
     body {{max-width: 900px; margin:0px auto; padding-bottom: 25px;}}
-    .thumbnail {{ cursor: pointer; width: 492px; height: 500px; margin: 0 auto; text-align: left;}}
+    .thumbnail {{ cursor: pointer; width: 332px; margin: 0 auto; text-align: left;}}
     .topnav {{ background-color: #1206d7; overflow: hidden}}
     .topnav a {{ float: left; color: #f2f2f2; text-align: center; padding: 14px 16px; text-decoration: none; font-size: 17px}}
     .topnav a:hover {{ background-color: #ddd; color: black}}
     .topnav a.active {{ background-color: #0dc044; color: white}}
     .left {{ float: left; width: 50%; font-size: 2.0rem; text-align: left;}}
     .clear {{ clear: both;}}
+    .btn {{ border: 2px solid black; border-radius: 5px; background-color: white; color: black; padding: 10px 28px; font-size: 16px; cursor: pointer; margin: 8px 4px;}}
+    .download {{ border-color: #04AA6D; color: green; }}
+    .download:hover {{ background-color: #04AA6D; color: white; }}
     </style>
 </head>
 
@@ -983,8 +1082,79 @@ fn image_html() -> String {
 <div>
 <canvas id="canvas10" width="160" height="120" onclick="drawImageOnWindow(10, 0, -1)"></canvas>
 <canvas id="canvas11" width="160" height="120" onclick="drawImageOnWindow(11, 0, -1)"></canvas>
-</div></div></div>
+</div></div>
+
+<div class="clear">
+<div class="left">
+<label for="trackidSelect">Download Track: </label></div>
+<div class="left">
+<select id="trackidSelect">
+<option value="0">0</option>
+<option value="1">1</option>
+<option value="2">2</option>
+<option value="3">3</option>
+<option value="4">4</option>
+<option value="5">5</option>
+<option value="6">6</option>
+<option value="7">7</option>
+<option value="8">8</option>
+<option value="9">9</option>
+<option value="10">10</option>
+<option value="11">11</option>
+</select>
+</div>
+<div class="left">
+<button id="downloadbutton" class="btn download" onclick="downloadTrackImages()">Download</button>
+</div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js" integrity="sha512-csNcFYJniKjJxRWRV1R7fvnXrycHP6qDR21mgz1ZP55xY5d+aHLfo9/FcGDQLfn2IfngbAHd8LdfsagcCqgTcQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
+// download multipart image
+var duringDownload = false;
+function downloadTrackImages() {{
+    if (duringDownload) {{
+        return;
+    }}
+    duringDownload = true;
+    var downloadButton = document.getElementById("downloadbutton");
+    // button name change
+    downloadButton.innerText = "Downloading...";
+    var random_number = Math.floor(Math.random()*10000);
+    var trackid = document.getElementById("trackidSelect").value;
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/images?trackid=" + trackid + "&fromframe=0&toframe=-1&random_number=" + random_number, true);
+    xhr.responseType = "blob";
+    xhr.onload = function() {{
+        var url = window.URL.createObjectURL(xhr.response);
+        // get multipart data
+        var reader = new FileReader();
+        reader.onload = function() {{
+            var data = reader.result;
+            var parts = data.split("--timeleapcamboundary");
+            var zip = new JSZip();
+            for (var i = 1; i < parts.length; i++) {{
+                var part = parts[i];
+                var lines = part.split("\r\n");
+                var content_type = lines[1].split(": ")[1];
+                var filename = lines[2].split("=")[1];
+                var images = part.split("\r\n\r\n");
+                var image = atob(images[1]);
+                zip.file(filename, image, {{binary: true}});
+            }}
+            zip.generateAsync({{type:"blob"}}).then(function(content) {{
+                var savefile = "image_" + trackid + ".zip";
+                saveAs(content, savefile);
+                duringDownload = false;
+                downloadButton.innerText = "Download";
+            }});
+        }};
+        reader.readAsText(xhr.response);
+    }};
+    xhr.send();
+}}
+
 function drawImageOnWindow(trackid, fromframe, toframe) {{
     var random_number = Math.floor(Math.random()*10000);
     window.open('/data?trackid=' + trackid + '&fromframe=' + fromframe + '&toframe=' + toframe + '&random_number=' + random_number);
@@ -1809,7 +1979,7 @@ fn config_html() -> String {
 <div class="left">
 <label for="status_report">Report Interval:</label></div>
 <div class="left">
-<input type="number" id="status_report_interval" value="300">Times
+<input type="number" id="status_report_interval" value="300">
 </div></div>
 
 <div class="clear">
