@@ -45,6 +45,12 @@ pub struct Config {
     status_report_interval: &'static str,
     #[default("3600")]
     post_interval: &'static str,
+    #[default("-1")]
+    leap_day: &'static str,
+    #[default("-1")]
+    leap_hour: &'static str,
+    #[default("-1")]
+    leap_minute: &'static str,
 }
 
 const MENU_SSID: (&str, &str) = ("SSID", "ssid");
@@ -68,6 +74,9 @@ const MENU_AUTOFOCUSONCE: (&str, &str) = ("AUTOFOCUSONCE", "autofocusonce");
 const MENU_STATUSREPORT: (&str, &str) = ("STATUSREPORT", "statusreport");
 const MENU_STATUSREPORTINTERVAL: (&str, &str) = ("STATUSREPORTINTERVAL", "statusreportinterval");
 const MENU_POSTINTERVAL: (&str, &str) = ("POSTINTERVAL", "postinterval");
+const MENU_LEAPDAY: (&str, &str) = ("LEAPDAY", "leapday");
+const MENU_LEAPHOUR: (&str, &str) = ("LEAPHOUR", "leaphour");
+const MENU_LEAPMINUTE: (&str, &str) = ("LEAPMINUTE", "leapminute");
 
 #[derive(Debug)]
 pub struct ConfigData {
@@ -92,6 +101,9 @@ pub struct ConfigData {
     pub status_report: bool,
     pub status_report_interval: u32,
     pub post_interval: u32,
+    pub leap_day: i32,
+    pub leap_hour: i32,
+    pub leap_minute: i32,
 }
 
 impl ConfigData {
@@ -118,6 +130,9 @@ impl ConfigData {
             status_report: false,
             status_report_interval: 0,
             post_interval: 0,
+            leap_day: -1,
+            leap_hour: -1,
+            leap_minute: -1,
         }
     }
     pub fn load_config(&mut self, nvs_value: Option<&str>) -> anyhow::Result<()> {
@@ -149,6 +164,9 @@ impl ConfigData {
         self.status_report = settings_map.get(MENU_STATUSREPORT.1).ok_or(anyhow::Error::msg("status_report not found"))?.parse::<bool>()?;
         self.status_report_interval = settings_map.get(MENU_STATUSREPORTINTERVAL.1).ok_or(anyhow::Error::msg("status_report_interval not found"))?.parse::<u32>()?;
         self.post_interval = settings_map.get(MENU_POSTINTERVAL.1).ok_or(anyhow::Error::msg("post_interval not found"))?.parse::<u32>()?;
+        self.leap_day = settings_map.get(MENU_LEAPDAY.1).ok_or(anyhow::Error::msg("leap_day not found"))?.parse::<i32>()?;
+        self.leap_hour = settings_map.get(MENU_LEAPHOUR.1).ok_or(anyhow::Error::msg("leap_hour not found"))?.parse::<i32>()?;
+        self.leap_minute = settings_map.get(MENU_LEAPMINUTE.1).ok_or(anyhow::Error::msg("leap_minute not found"))?.parse::<i32>()?;
         Ok(())
     }
     
@@ -175,6 +193,9 @@ impl ConfigData {
         default_config.push((MENU_STATUSREPORT.0.to_string(), CONFIG.status_report.to_string()));
         default_config.push((MENU_STATUSREPORTINTERVAL.0.to_string(), CONFIG.status_report_interval.to_string()));
         default_config.push((MENU_POSTINTERVAL.0.to_string(), CONFIG.post_interval.to_string()));
+        default_config.push((MENU_LEAPDAY.0.to_string(), CONFIG.leap_day.to_string()));
+        default_config.push((MENU_LEAPHOUR.0.to_string(), CONFIG.leap_hour.to_string()));
+        default_config.push((MENU_LEAPMINUTE.0.to_string(), CONFIG.leap_minute.to_string()));
         default_config
     }
 
@@ -202,6 +223,9 @@ impl ConfigData {
         all_config.push((MENU_STATUSREPORT.0.to_string(), self.status_report.to_string()));
         all_config.push((MENU_STATUSREPORTINTERVAL.0.to_string(), self.status_report_interval.to_string()));
         all_config.push((MENU_POSTINTERVAL.0.to_string(), self.post_interval.to_string()));
+        all_config.push((MENU_LEAPDAY.0.to_string(), self.leap_day.to_string()));
+        all_config.push((MENU_LEAPHOUR.0.to_string(), self.leap_hour.to_string()));
+        all_config.push((MENU_LEAPMINUTE.0.to_string(), self.leap_minute.to_string()));
         all_config
     }    
 }

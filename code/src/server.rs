@@ -71,10 +71,13 @@ pub struct ControlServerInfo {
     pub status_report_interval: u32,
     pub last_posted_date_time: SystemTime,
     pub post_interval: u32,
+    pub capture_start_time: SystemTime,
+    pub capture_end_time: SystemTime,
 }
 
 impl ControlServerInfo {
     pub fn new() -> ControlServerInfo {
+        let now = SystemTime::now();
         ControlServerInfo {
             need_to_save: false,
             capture_started: false,
@@ -92,21 +95,23 @@ impl ControlServerInfo {
             resolution: camera::framesize_t_FRAMESIZE_VGA,
             idle_in_sleep_time: 300,
             auto_capture: false,
-            last_access_time: SystemTime::now(),
+            last_access_time: now,
             query_openai: false,
             query_prompt: String::from(""),
             openai_model: String::from(""),
             rssi: 0,
             battery_voltage: 0.0,
             current_capture_id: 0,
-            last_capture_date_time: SystemTime::now(),
+            last_capture_date_time: now,
             one_shot: false,
             one_shot_completed: false,
             autofocus_once: false,
             status_report: false,
             status_report_interval: 60,
-            last_posted_date_time: SystemTime::now(),
+            last_posted_date_time: now,
             post_interval: 3600,
+            capture_start_time: now,
+            capture_end_time: now,
         }
     }    
 }
@@ -162,85 +167,6 @@ impl ControlServer {
                     return Ok::<(), EspIOError>(());
                 }
             };
-            // get track_id
-            let track_id = match json["trackid"].as_u64() {
-                Some(track_id) => track_id as u32,
-                None => {
-                    0
-                }
-            };
-            server_info.track_id = track_id;
-            //  get duration
-            let duration = match json["duration"].as_u64() {
-                Some(duration) => duration as u32,
-                None => {
-                    10
-                }
-            };
-            server_info.duration = duration;
-            // get resolution
-            let resolution = match json["resolution"].as_str() {
-                Some(resolution) => resolution,
-                None => {
-                    "VGA"
-                }
-            };
-            server_info.resolution = ACCEPTABLE_RESOLUTIONS.iter()
-                .find(|(name, _)| name == &resolution)
-                .map(|(_, value)| *value)
-                .unwrap_or(camera::framesize_t_FRAMESIZE_VGA);
-
-            // get leap_time
-            let leap_time = match json["leaptime"].as_object() {
-                Some(leap_time) => {
-                    // let year = match leap_time.get("year") {
-                    //     Some(year) => year.as_i64().unwrap(),
-                    //     None => 0,
-                    // };
-                    // let month = match leap_time.get("month") {
-                    //     Some(month) => month.as_u64().unwrap(),
-                    //     None => 1,
-                    // };
-                    let year = 0;
-                    let month = 0;
-                    let day = match leap_time.get("day") {
-                        Some(day) => day.as_i64().unwrap(),
-                        None => 1,
-                    };
-                    let hour = match leap_time.get("hour") {
-                        Some(hour) => hour.as_i64().unwrap(),
-                        None => 0,
-                    };
-                    let minute = match leap_time.get("minute") {
-                        Some(minute) => minute.as_i64().unwrap(),
-                        None => 0,
-                    };
-                    let second = match leap_time.get("second") {
-                        Some(second) => second.as_i64().unwrap(),
-                        None => 0,
-                    };
-                    LeapTime {
-                        year: year as i32,
-                        month: month as i32,
-                        day: day as i32,
-                        hour: hour as i32,
-                        minute: minute as i32,
-                        second: second as i32,
-                    }
-                }
-                None => {
-                    LeapTime {
-                        year: -1,
-                        month: -1,
-                        day: -1,
-                        hour: -1,
-                        minute: -1,
-                        second: -1,
-                    }
-                }
-            };
-            info!("Leap Time: {:?}", leap_time);
-            server_info.leap_time = leap_time;
             // get request
             let request_param = match json["request"].as_str() {
                 Some(request_param) => request_param,
@@ -262,6 +188,139 @@ impl ControlServer {
                         .write_all("Invalid request".as_bytes())?;
                     return Ok::<(), EspIOError>(());
                 }
+            }
+            if server_info.capture_started {
+                // get track_id
+                let track_id = match json["trackid"].as_u64() {
+                    Some(track_id) => track_id as u32,
+                    None => {
+                        0
+                    }
+                };
+                server_info.track_id = track_id;
+                //  get duration
+                let duration = match json["duration"].as_u64() {
+                    Some(duration) => duration as u32,
+                    None => {
+                        10
+                    }
+                };
+                server_info.duration = duration;
+                // get resolution
+                let resolution = match json["resolution"].as_str() {
+                    Some(resolution) => resolution,
+                    None => {
+                        "VGA"
+                    }
+                };
+                server_info.resolution = ACCEPTABLE_RESOLUTIONS.iter()
+                    .find(|(name, _)| name == &resolution)
+                    .map(|(_, value)| *value)
+                    .unwrap_or(camera::framesize_t_FRAMESIZE_VGA);
+
+                // get leap_time
+                let leap_time = match json["leaptime"].as_object() {
+                    Some(leap_time) => {
+                        // let year = match leap_time.get("year") {
+                        //     Some(year) => year.as_i64().unwrap(),
+                        //     None => 0,
+                        // };
+                        // let month = match leap_time.get("month") {
+                        //     Some(month) => month.as_u64().unwrap(),
+                        //     None => 1,
+                        // };
+                        let year = 0;
+                        let month = 0;
+                        let day = match leap_time.get("day") {
+                            Some(day) => day.as_i64().unwrap(),
+                            None => 1,
+                        };
+                        let hour = match leap_time.get("hour") {
+                            Some(hour) => hour.as_i64().unwrap(),
+                            None => 0,
+                        };
+                        let minute = match leap_time.get("minute") {
+                            Some(minute) => minute.as_i64().unwrap(),
+                            None => 0,
+                        };
+                        let second = match leap_time.get("second") {
+                            Some(second) => second.as_i64().unwrap(),
+                            None => 0,
+                        };
+                        LeapTime {
+                            year: year as i32,
+                            month: month as i32,
+                            day: day as i32,
+                            hour: hour as i32,
+                            minute: minute as i32,
+                            second: second as i32,
+                        }
+                    }
+                    None => {
+                        LeapTime {
+                            year: -1,
+                            month: -1,
+                            day: -1,
+                            hour: -1,
+                            minute: -1,
+                            second: -1,
+                        }
+                    }
+                };
+                info!("Leap Time: {:?}", leap_time);
+                server_info.leap_time = leap_time;
+                // get capture start date & time
+                let capture_start_time = match json["captureStartTime"].as_str() {
+                    Some(capture_start_time) => {
+                        let capture_start_time = &format!("{}:00{}{:02}:00", capture_start_time, if server_info.timezone >= 0 {"+"} else {"-"},  server_info.timezone);
+                        info!("Capture Start Time: {}", capture_start_time);
+                        let parse_capture_start_time = chrono::DateTime::parse_from_rfc3339(capture_start_time);
+                        let capture_start_time = match parse_capture_start_time {
+                            Ok(capture_start_time) => {
+                                let capture_start_time = capture_start_time.with_timezone(&chrono::Utc);
+                                let capture_start_time = capture_start_time.timestamp();
+                                capture_start_time
+                            }
+                            Err(e) => {
+                                info!("Failed to parse capture start time: {:?}", e);
+                                SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64
+                            }
+                        };
+                        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(capture_start_time as u64)
+                    }
+                    None => {
+                        SystemTime::now()
+                    }
+                };
+                // transfer capture_start_time to Time struct format
+                server_info.capture_start_time = capture_start_time;
+                // get capture end date & time
+                let capture_end_time = match json["captureEndTime"].as_str() {
+                    Some(capture_end_time) => {
+                        //2024-01-01T00:00:00 LOCAL TIME to UTC
+                        let capture_end_time = &format!("{}:00{}{:02}:00", capture_end_time, if server_info.timezone >= 0 {"+"} else {"-"}, server_info.timezone);
+                        info!("Capture End Time: {}", capture_end_time);
+                        let parse_capture_end_time = chrono::DateTime::parse_from_rfc3339(capture_end_time);
+                        let capture_end_time = match parse_capture_end_time {
+                            Ok(capture_end_time) => {
+                                let capture_end_time = capture_end_time.with_timezone(&chrono::Utc);
+                                let capture_end_time = capture_end_time.timestamp();
+                                capture_end_time
+                            }
+                            Err(e) => {
+                                info!("Failed to parse capture end time: {:?}", e);
+                                SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64
+                            }
+                        };
+                        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(capture_end_time as u64)
+                    }
+                    None => {
+                        SystemTime::now()
+                    }
+                };
+                // transfer capture_end_time to Time struct format
+                server_info.capture_end_time = capture_end_time;
+                server_info.need_to_save = true;
             }
             let response = request.into_ok_response();
             let status = if server_info.capture_started {
@@ -940,7 +999,7 @@ impl ControlServer {
             let response = request.into_ok_response();
             let server_info = server_info_current_config.clone();
             let server_info = server_info.lock().unwrap();
-            let config_json = format!("{{\"resolution\": \"{}\", \"trackid\": {}, \"duration\": {}, \"timezone\": {}, \"idlesleep\": {}, \"autocapture\": {}, \"queryopenai\": {}, \"queryprompt\": \"{}\", \"openai_model\": \"{}\", \"autofocus_once\": {}, \"status_report\": {}, \"status_report_interval\": {}, \"post_interval\": {}}}",
+            let config_json = format!("{{\"resolution\": \"{}\", \"trackid\": {}, \"duration\": {}, \"timezone\": {}, \"idlesleep\": {}, \"autocapture\": {}, \"queryopenai\": {}, \"queryprompt\": \"{}\", \"openai_model\": \"{}\", \"autofocus_once\": {}, \"status_report\": {}, \"status_report_interval\": {}, \"post_interval\": {}, \"leaptime\": {{\"year\": {}, \"month\": {}, \"day\": {}, \"hour\": {}, \"minute\": {}}}}}",
                                       ACCEPTABLE_RESOLUTIONS.iter()
                                       .find(|(_, value)| value == &server_info.resolution)
                                       .map(|(name, _)| *name).unwrap_or("VGA"),
@@ -956,6 +1015,11 @@ impl ControlServer {
                                       server_info.status_report,
                                       server_info.status_report_interval,
                                       server_info.post_interval,
+                                      server_info.leap_time.year,
+                                      server_info.leap_time.month,
+                                      server_info.leap_time.day,
+                                      server_info.leap_time.hour,
+                                      server_info.leap_time.minute,
                                     );
             response?.write_all(config_json.as_bytes())?;
             Ok::<(), EspIOError>(())
@@ -1165,7 +1229,6 @@ function drawThumbnail(trackid, canvasid) {{
     var canvas = document.getElementById(canvasid);
     var ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // draw image size to canvas size
     var img = new Image();
     img.onload = function() {{
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -1539,11 +1602,21 @@ fn index_html(status: bool) -> String {
 <option value="58">58</option>
 <option value="59">59</option>
 </select>:0</div></div>
-
+<div class="clear">
+<div class="left">
+<label for="captureStartTime">Capture Start Time:</label></div>
+<div class="left">
+<input type="datetime-local" id="captureStartTime" name="captureStartTime" value="2021-01-01T00:00:00"></div></div>
+<div class="clear">
+<div class="left">
+<label for="captureEndTime">Capture End Time:</label></div>
+<div class="left">
+<input type="datetime-local" id="captureEndTime" name="captureEndTime" value="2021-01-01T00:00:00"></div></div>
 <div class="clear">
 <canvas id="preview" width="320" height="240" onclick="getOneShot()"></canvas>
 </div>
 </div>
+
 
 <script>
 function toggleCheckbox(element) {{
@@ -1585,7 +1658,9 @@ function CaptureStart() {{
             "hour": leaphour_element.value - 0,
             "minute": leapminute_element.value - 0,
             "second": -1
-        }}
+        }},
+        "captureStartTime": document.getElementById("captureStartTime").value,
+        "captureEndTime": document.getElementById("captureEndTime").value
     }}));
 }}
 function CaptureStop() {{
@@ -1614,6 +1689,11 @@ function getConfig() {{
             document.getElementById("resolutionSelect").value = config.resolution;
             document.getElementById("trackidSelect").value = config.trackid;
             document.getElementById("durationSelect").value = config.duration;
+            document.getElementById("captureStartTime").value = config.captureStartTime;
+            document.getElementById("captureEndTime").value = config.captureEndTime;
+            document.getElementById("leapday").value = config.leaptime.day;
+            document.getElementById("leaphour").value = config.leaptime.hour;
+            document.getElementById("leapminute").value = config.leaptime.minute;
         }}
     }};
     xhttp.open("GET", "/config", true);
@@ -1637,6 +1717,9 @@ var check_completed = null;
 
 function getOneShot() {{
     if (check_completed != null) {{
+        return;
+    }}
+    if (captureStart.checked == true) {{
         return;
     }}
     var random_number = Math.floor(Math.random()*10000);
