@@ -193,8 +193,28 @@ impl Monitoring {
                             }
                         }
                     }
-                    let _ = delete_images(postmsg.storage_url.clone(), postmsg.storage_account.clone(),
+                    let image_list = delete_images(postmsg.storage_url.clone(), postmsg.storage_account.clone(),
                         postmsg.storage_access_token.clone());
+                    match image_list {
+                        Ok(list) => {
+                            for image in list.as_array().unwrap() {
+                                let image_id = image["id"].as_str().unwrap();
+                                let upload_date = image["uploaded"].as_str().unwrap();
+                                info!("Image ID: {:?} Uploaded: {:?}", image_id, upload_date);
+                                // parse upload date <2024-06-21T12:23:13.576Z> to seconds
+                                let upload_date_sec_utc = upload_date.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp();
+                                // upload date is older than EXPIRATION
+                                if SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - (upload_date_sec_utc as u64) < EXPIRATION {
+                                    continue;
+                                }
+                                let _result = delete_image(postmsg.storage_url.clone(), postmsg.storage_account.clone(),
+                                    postmsg.storage_access_token.clone(), image_id.to_string());
+                            }
+                        }
+                        Err(e) => {
+                            info!("Failed to delete images: {:?}", e);
+                        }
+                    }
                     postmsg.post_message_request = false;
                 }
                 drop(postmsg);
@@ -433,7 +453,7 @@ fn generate_signed_url(mut url: Url, key: &str) -> String {
 
 
 fn delete_images(storage_url: String, storage_account: String, storage_access_token: String)
-         -> anyhow::Result<()> {
+         -> anyhow::Result<serde_json::Value> {
     let http = EspHttpConnection::new(
         &Configuration {
         use_global_ca_store: true,
@@ -478,22 +498,7 @@ fn delete_images(storage_url: String, storage_account: String, storage_access_to
             info!("Response Error {} {:?}", status, std::str::from_utf8(&buf[..len]));
         }
     }
-    // info!("Image List: {:?}", image_list);
-    // delete image
-    for image in image_list.as_array().unwrap() {
-        let image_id = image["id"].as_str().unwrap();
-        let upload_date = image["uploaded"].as_str().unwrap();
-        info!("Image ID: {:?} Uploaded: {:?}", image_id, upload_date);
-        // parse upload date <2024-06-21T12:23:13.576Z> to seconds
-        let upload_date_sec_utc = upload_date.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp();
-        // upload date is older than EXPIRATION
-        if SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - (upload_date_sec_utc as u64) < EXPIRATION {
-            continue;
-        }
-        let _result = delete_image(storage_url.clone(), storage_account.clone(),
-            storage_access_token.clone(), image_id.to_string());
-    }
-    Ok(())
+    Ok(image_list)
 }
 
 fn delete_image(storage_url: String, storage_account: String, storage_access_token: String,
@@ -518,7 +523,7 @@ fn delete_image(storage_url: String, storage_account: String, storage_access_tok
     request.flush()?;
     let mut response = request.submit()?;
     let status = response.status();
-    info!("Delete Image Status: {:?}", status);
+    info!("Delete Image url:{:?} status:{:?}", url, status);
     let mut buf = [0u8; 1024];
     match status {
         200 => {
