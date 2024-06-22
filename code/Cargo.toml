@@ -36,13 +36,12 @@ base64 = "0.22.1"
 hmac = "0.12.1"
 sha2 = "0.10.8"
 hex = "0.4.3"
-#esp-hal-procmacros = { version = "0.10.0", features = ["ram"] }
 
 [build-dependencies]
 embuild = "0.31.3"
 anyhow = "1"
 cc = "1.0"
-git2 = "0.14.2"
+git2 = "0.16.1"
 cmake = "0.1.50"
 
 [package.metadata.espflash]
