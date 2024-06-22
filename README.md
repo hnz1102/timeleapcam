@@ -10,6 +10,22 @@
 ## Overview
 The TIME LEAP CAM is an autofocus camera designed for long-duration time-lapse photography. Named for its ability to "leap" through time, this camera is ideal for monitoring over extended periods. It operates on battery power and features a DeepSleep mode to conserve energy when not actively shooting. Images are stored on a 64GB eMMC within one of eleven designated folders.
 
+Update v0.2.0
+- Updated the UI for the configuration screen.
+- Added the function to send a notification as status to LINE when the specified cycle is reached.
+- Added the function to check the preview image on the web.
+- Added images are uploaded to Cloudflare Images for private storage with signed URL.
+- Added images are automatically deleted from the Cloudflare Images after 1 days.
+- Added images can be downloaded as a compressed image from this camera on the web. (PC browser only)
+- Added the function to check the remaining battery level on the web.
+- Added the function to check the WiFi signal level on the web.
+- Added the function to limit the time-lapse shooting time.
+- Added the function to shoot when the camera touches the button during 3 secs on the back.
+
+New Container Design
+- The new container design is added for the camera
+![Container](doc/newcontainer-s.jpg)
+
 ## Features
 - **Autofocus Capability**: Ensures clear images over long shooting intervals.
 - **Energy Efficiency**: Utilizes DeepSleep mode for minimal power consumption (less than 440uA, 1.5mW).
@@ -131,12 +147,20 @@ duration = "0"
 api_key = "<API KEY for openAI>" # Set your OpenAI API Key
 model = "gpt-4o"
 query_openai = "false"
-query_prompt = "If is there somebody, Add in the reply as 'NOTICE' and reason. If is nobody, Just reply is 'NONE'."
+query_prompt = "If heavy rain is expected in 30 minutes, please include a 'NOTICE' with the reason in your reply. If not, simply respond with 'NONE'. Heavy rain is defined as 30mm/h or more."
 post_account = "<Your LINE Account ID>" # Set your LINE Account ID
 post_access_token = "<Access Token for LINE Message>" # Set your LINE Access Token
 storage_account = "<Your Cloudflare Account ID>" # Set your Cloudflare Account ID
-storage_access_token = "Your Cloudflare Access Token>" # Set your Cloudflare Access Token
+storage_access_token = "<Your Cloudflare Access Token>" # Set your Cloudflare Access Token
+storage_signed_key = "<Your Cloudflare Image Signed Key>" # Set your Cloudflare Image Signed Key
 post_message_trigger = "NOTICE"
+autofocus_once = "true"
+status_report = "false"
+status_report_interval = "10"
+post_interval = "3600"
+leap_day = "-1"
+leap_hour = "-1"
+leap_minute = "-1"
 ```
 
 ### 8. Build and Flash
@@ -153,7 +177,13 @@ There is a Schematic data in the hardware directory including 3D printing data.
 
 ![board](doc/board.jpg)
 
-![Container](doc/container.jpg)
+![container](doc/container.jpg)
+
+### New Cover and Base for the Camera
+![New-Cover](doc/newcover-s.jpg)
+
+Base for the camera is also available for 3D printing. base-v14.stl is the latest version.
+![base](doc/base-s.jpg)
 
 ## Troubleshooting
 - **Permission Issues**: Ensure udev rules are set correctly and you have the necessary permissions to access the device.
