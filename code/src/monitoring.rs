@@ -6,8 +6,14 @@ use std::sync::Arc;
 use std::thread;
 use embedded_svc::http::Method;
 use esp_idf_hal::io::Write;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::path::Path;
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+use url::Url;
+
+type HmacSha256 = Hmac<Sha256>;
+const EXPIRATION: u64 = 60 * 60 * 24; // 1 day
 
 use crate::imagefiles;
 
@@ -33,6 +39,7 @@ struct PostImageAndMessage {
     storage_url: String,
     storage_account: String,
     storage_access_token: String,
+    storage_signed_key: String,
     image_url: String,
     post_message_string: String,
     track_id: u32,
@@ -71,6 +78,7 @@ impl Monitoring {
                 storage_url: String::from("https://api.cloudflare.com/client/v4/accounts"),
                 storage_account: String::from(""),
                 storage_access_token: String::from(""),
+                storage_signed_key: String::from(""),
                 image_url: String::from(""),
                 post_message_string: String::from(""),
                 track_id: 0,
@@ -124,10 +132,12 @@ impl Monitoring {
                             let filename = format!("t{}i{}.jpg", openai.track_id, openai.count);
                             let image_url = post_image(postmsg.storage_url.clone(),
                                     postmsg.storage_account.clone(),
-                                    postmsg.storage_access_token.clone(), filename, &buffer);
+                                    postmsg.storage_access_token.clone(), filename, &buffer, true);
                             post_image_status = match image_url {
                                 Ok(url) => {
-                                    postmsg.image_url = url;
+                                    let signed_url = generate_signed_url(Url::parse(&url).unwrap(), postmsg.storage_signed_key.as_str());
+                                    info!("Signed URL: {:?}", signed_url);
+                                    postmsg.image_url = signed_url;
                                     true
                                 }
                                 Err(e) => {
@@ -158,10 +168,12 @@ impl Monitoring {
                     let filename = format!("t{}i{}.jpg", postmsg.track_id, postmsg.count);
                     let image_url = post_image(postmsg.storage_url.clone(),
                             postmsg.storage_account.clone(),
-                            postmsg.storage_access_token.clone(), filename, &buffer);
+                            postmsg.storage_access_token.clone(), filename, &buffer, true);
                     let post_image_status = match image_url {
                         Ok(url) => {
-                            postmsg.image_url = url;
+                            let signed_url = generate_signed_url(Url::parse(&url).unwrap(), postmsg.storage_signed_key.as_str());
+                            info!("Signed URL: {:?}", signed_url);
+                            postmsg.image_url = signed_url;
                             true
                         }
                         Err(e) => {
@@ -181,6 +193,8 @@ impl Monitoring {
                             }
                         }
                     }
+                    let _ = delete_images(postmsg.storage_url.clone(), postmsg.storage_account.clone(),
+                        postmsg.storage_access_token.clone());
                     postmsg.post_message_request = false;
                 }
                 drop(postmsg);
@@ -215,10 +229,11 @@ impl Monitoring {
         postmsg.post_message_trigger = post_message_trigger;
     }
 
-    pub fn set_storage_access_token(&self, account: String, access_token: String) {
+    pub fn set_storage_access_token(&self, account: String, access_token: String, signed_key: String) {
         let mut postmsg = self.postmsg.lock().unwrap();
         postmsg.storage_account = account;
         postmsg.storage_access_token = access_token;
+        postmsg.storage_signed_key = signed_key;
     }
 
     pub fn post_message_request(&self, message: String, track_id: u32, count: u32) {
@@ -295,7 +310,7 @@ fn query_to_openai(api_key: String, model: String, prompt: String,
 }
 
 fn post_image(storage_url: String, storage_account: String, storage_access_token: String,
-              filename: String, buffer: &Vec<u8>) -> anyhow::Result<String> {
+              filename: String, buffer: &Vec<u8>, signed_url: bool) -> anyhow::Result<String> {
     let http = EspHttpConnection::new(
         &Configuration {
             use_global_ca_store: true,
@@ -321,7 +336,11 @@ fn post_image(storage_url: String, storage_account: String, storage_access_token
     request.write(b"Content-Type: image/jpeg\r\n")?;
     request.write(b"\r\n")?;
     request.write(buffer)?;
-    request.write(b"\r\n--------------------------a90531928d528eaf--\r\n")?;
+    request.write(b"\r\n--------------------------a90531928d528eaf\r\n")?;
+    let signed_url_form = format!("Content-Disposition: form-data; name=\"requireSignedURLs\"\r\n\r\n{}\r\n",
+        if signed_url {"true"} else {"false"});
+    request.write(signed_url_form.as_bytes())?;
+    request.write(b"--------------------------a90531928d528eaf--\r\n")?;
     request.flush()?;
     let mut response = request.submit()?;
     let status = response.status();
@@ -381,6 +400,129 @@ fn post_message(post_url: String, post_to: String, access_token: String, image_u
             // let len = response.read(&mut buf)?;
             // let json: serde_json::Value = serde_json::from_slice(&buf[..len]).unwrap();
             // info!("Response: {:?}", json);
+        }
+        _ => {
+            let len = response.read(&mut buf)?;
+            info!("Response Error {} {:?}", status, std::str::from_utf8(&buf[..len]));
+        }
+    }
+    Ok(())
+}
+
+
+// Generate signed URL
+fn generate_signed_url(mut url: Url, key: &str) -> String {
+    // Get current UNIX timestamp and add expiration
+    info!("URL: {:?} key:{:?}", url, key);
+    let expiry = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + EXPIRATION;
+    url.query_pairs_mut().append_pair("exp", &expiry.to_string());
+
+    // Create a string to sign
+    let string_to_sign = format!("{}?{}", url.path(), url.query().unwrap_or_default());
+
+    // Generate a signature using HMAC-SHA256
+    let mut mac = HmacSha256::new_from_slice(key.as_bytes()).expect("HMAC can take key of any size");
+    mac.update(string_to_sign.as_bytes());
+    let signature = mac.finalize().into_bytes();
+
+    // Convert the signature to a hexadecimal string and add it to the URL
+    url.query_pairs_mut().append_pair("sig", &hex::encode(signature));
+
+    url.to_string()
+}
+
+
+fn delete_images(storage_url: String, storage_account: String, storage_access_token: String)
+         -> anyhow::Result<()> {
+    let http = EspHttpConnection::new(
+        &Configuration {
+        use_global_ca_store: true,
+        crt_bundle_attach: Some(esp_idf_svc::sys::esp_crt_bundle_attach),
+        timeout: Some(Duration::from_secs(20)),
+        ..Default::default()
+    })?;
+    let mut client = Client::wrap(http);
+    let authorization = &format!("Bearer {}", storage_access_token);
+    let headers : [(&str, &str); 2] = [
+        ("Authorization", authorization),
+        ("Content-Type", "application/json"),
+    ];
+    let url = format!("{}/{}/images/v1", storage_url, storage_account);
+    let mut request = client.request(Method::Get, 
+        &url,
+        &headers)?;
+    // get image list
+    request.flush()?;
+    let mut response = request.submit()?;
+    let status = response.status();
+    info!("Get Image List Status: {:?}", status);
+    let mut buf = Vec::new();
+    let mut tmpbuf = [0u8; 8192];
+    let mut image_list : serde_json::Value = serde_json::Value::Null;
+    match status {
+        200 => {
+            loop {
+                let len = response.read(&mut tmpbuf)?;
+                if len == 0 {
+                    break;
+                }
+                buf.extend_from_slice(&tmpbuf[..len]);
+            }
+            let body_length = buf.len();
+            info!("Body Length: {:?}", body_length);
+            let json : serde_json::Value = serde_json::from_slice(&buf[..body_length]).unwrap();
+            image_list = json["result"]["images"].clone();
+        }
+        _ => {
+            let len = response.read(&mut buf)?;
+            info!("Response Error {} {:?}", status, std::str::from_utf8(&buf[..len]));
+        }
+    }
+    // info!("Image List: {:?}", image_list);
+    // delete image
+    for image in image_list.as_array().unwrap() {
+        let image_id = image["id"].as_str().unwrap();
+        let upload_date = image["uploaded"].as_str().unwrap();
+        info!("Image ID: {:?} Uploaded: {:?}", image_id, upload_date);
+        // parse upload date <2024-06-21T12:23:13.576Z> to seconds
+        let upload_date_sec_utc = upload_date.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp();
+        // upload date is older than EXPIRATION
+        if SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - (upload_date_sec_utc as u64) < EXPIRATION {
+            continue;
+        }
+        let _result = delete_image(storage_url.clone(), storage_account.clone(),
+            storage_access_token.clone(), image_id.to_string());
+    }
+    Ok(())
+}
+
+fn delete_image(storage_url: String, storage_account: String, storage_access_token: String,
+                image_id: String) -> anyhow::Result<()> {
+    let http = EspHttpConnection::new(
+        &Configuration {
+        use_global_ca_store: true,
+        crt_bundle_attach: Some(esp_idf_svc::sys::esp_crt_bundle_attach),
+        timeout: Some(Duration::from_secs(20)),
+        ..Default::default()
+    })?;
+    let mut client = Client::wrap(http);
+    let authorization = &format!("Bearer {}", storage_access_token);
+    let headers : [(&str, &str); 2] = [
+        ("Authorization", authorization),
+        ("Content-Type", "application/json"),
+    ];
+    let url = format!("{}/{}/images/v1/{}", storage_url, storage_account, image_id);
+    let mut request = client.request(Method::Delete, 
+        &url,
+        &headers)?;
+    request.flush()?;
+    let mut response = request.submit()?;
+    let status = response.status();
+    info!("Delete Image Status: {:?}", status);
+    let mut buf = [0u8; 1024];
+    match status {
+        200 => {
+            info!("Image deleted successfully");
         }
         _ => {
             let len = response.read(&mut buf)?;

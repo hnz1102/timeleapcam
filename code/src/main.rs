@@ -332,7 +332,8 @@ fn main() -> anyhow::Result<()> {
     monitoring_thread.set_post_access_token(config_data.post_account.clone(),
         config_data.post_access_token.clone(), config_data.post_message_trigger.clone());
     monitoring_thread.set_storage_access_token(config_data.storage_account.clone(),
-        config_data.storage_access_token.clone());
+                                               config_data.storage_access_token.clone(),
+                                               config_data.storage_signed_key.clone());
     monitoring_thread.set_last_posted_date_time(server_info.last_posted_date_time, server_info.post_interval);
     monitoring_thread.start();
     if operating_mode {
@@ -390,11 +391,13 @@ fn main() -> anyhow::Result<()> {
             server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
             if !server_info.capture_started {
                 // when idle, check last access time
-                let last_access_time = server_info.last_access_time.elapsed().unwrap().as_secs();
-                if last_access_time > config_data.idle_in_sleep_time as u64 {
-                    operating_mode = false;
-                    emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
-                    deep_and_light_sleep_start(SleepMode::SleepModeDeep, 0);
+                if server_info.last_access_time.duration_since(UNIX_EPOCH).unwrap().as_millis() > 1700000000 {
+                    let last_access_time = server_info.last_access_time.elapsed().unwrap().as_secs();
+                    if last_access_time > config_data.idle_in_sleep_time as u64 {
+                        operating_mode = false;
+                        emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
+                        deep_and_light_sleep_start(SleepMode::SleepModeDeep, 0);
+                    }
                 }
             }    
         }
