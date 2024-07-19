@@ -10,6 +10,10 @@
 ## Overview
 The TIME LEAP CAM is an autofocus camera designed for long-duration time-lapse photography. Named for its ability to "leap" through time, this camera is ideal for monitoring over extended periods. It operates on battery power and features a DeepSleep mode to conserve energy when not actively shooting. Images are stored on a 64GB eMMC within one of eleven designated folders.
 
+[Story](https://www.hackster.io/hnakamiru1103/time-leap-cam-time-lapse-cam-and-monitoring-by-openai-ae91a1) 
+
+[Video](https://youtu.be/7j1hlstlkWE)
+
 Update v0.2.0
 - Updated the UI for the configuration screen.
 - Added the function to send a notification as status to LINE when the specified cycle is reached.
@@ -50,7 +54,7 @@ New Container Design
 To use the TIME LEAP CAM, place it on a Qi wireless charger to charge power. Configure the camera settings such as shooting interval, time, and resolution through a web browser connected via WiFi. The camera can be activated from sleep mode by touching the screw on the back, which launches the web server for configuration.
 
 ## Options
-- **Folder Selection**: Choose from 11 different folders for storing images.
+- **Folder Selection**: Choose from 12 different folders for storing images.
 - **Image Resolution**: Selectable up to QSXGA (2592x1944).
 - **Notification Conditions**: Set via natural language input on the configuration screen.
 
