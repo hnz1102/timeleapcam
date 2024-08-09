@@ -10,9 +10,16 @@
 ## Overview
 The TIME LEAP CAM is an autofocus camera designed for long-duration time-lapse photography. Named for its ability to "leap" through time, this camera is ideal for monitoring over extended periods. It operates on battery power and features a DeepSleep mode to conserve energy when not actively shooting. Images are stored on a 64GB eMMC within one of eleven designated folders.
 
-[Story](https://www.hackster.io/hnakamiru1103/time-leap-cam-time-lapse-cam-and-monitoring-by-openai-ae91a1) 
-
-[Video](https://youtu.be/7j1hlstlkWE)
+Update v0.3.0
+- Added the movie shooting function. The movie is created by combining the images taken at the specified cycle. 
+ Capture Frames At Once (sec): The number of frames to capture at once. The default is 0, which means that the image is captured one by one. If you set it to 1, the image is captured during the 1 sec. If you set image resolution to VGA, the image is captured by 27 fps. HD is 15 - 27 fps. Full HD is 6 fps.
+- Capture images are stored by appending the file. If you set to "Over Write Save", the image is overwritten. 
+- Added the Open AI model 'GPT-4o mini' selection. The default is 'GPT-4o'. You can select the model from GPT-4o, GPT-4 Turbo, GPT-4o mini.
+- If touch the button during 3 secs on the back, the camera starts the movie shooting. The movie shooting is stopped when the button is touched again.
+- Improved the writing speed of the eMMC.
+- Change the Report Interval: The default is 3600 sec. The report interval is changed to 3600 sec. The status report is sent to LINE when the specified cycle is reached.
+- Camera interface is changed. Power Down, Reset pin is removed. In previous version, the power down pin and reset
+pin are assigned by dumy GPIO pin. The 'esp-camera-rs' driver must be updated to the latest version.
 
 Update v0.2.0
 - Updated the UI for the configuration screen.
@@ -35,7 +42,7 @@ New Container Design
 - **Energy Efficiency**: Utilizes DeepSleep mode for minimal power consumption (less than 440uA, 1.5mW).
 - **Wireless Charging**: Supports Qi wireless charging and automatically stops charging when full.
 - **Water Resistance**: Suitable for outdoor use with splash resistance.
-- **Advanced Notifications**: Uses OpenAI's GPT-4o for image recognition and sends notifications via LINE when specific conditions are met.
+- **Advanced Notifications**: Uses OpenAI's GPT-4o/GPT-4o mini for image recognition and sends notifications via LINE when specific conditions are met.
 - **Natural Language Configuration**: Set notification conditions in multiple languages through a simple interface.
 - **Touch-Activated Web Server**: Access settings via a browser with automatic return to sleep mode after 5 minutes of inactivity.
 - **Time Synchronization**: Uses NTP for automatic time adjustment when connected to WiFi, with RTC to maintain time offline.
@@ -54,7 +61,7 @@ New Container Design
 To use the TIME LEAP CAM, place it on a Qi wireless charger to charge power. Configure the camera settings such as shooting interval, time, and resolution through a web browser connected via WiFi. The camera can be activated from sleep mode by touching the screw on the back, which launches the web server for configuration.
 
 ## Options
-- **Folder Selection**: Choose from 12 different folders for storing images.
+- **Folder Selection**: Choose from 11 different folders for storing images.
 - **Image Resolution**: Selectable up to QSXGA (2592x1944).
 - **Notification Conditions**: Set via natural language input on the configuration screen.
 
@@ -160,11 +167,13 @@ storage_signed_key = "<Your Cloudflare Image Signed Key>" # Set your Cloudflare 
 post_message_trigger = "NOTICE"
 autofocus_once = "true"
 status_report = "false"
-status_report_interval = "10"
+status_report_interval = "3600"
 post_interval = "3600"
 leap_day = "-1"
 leap_hour = "-1"
 leap_minute = "-1"
+capture_frames_at_once = "0"
+overwrite_saved = "false"
 ```
 
 ### 8. Build and Flash
