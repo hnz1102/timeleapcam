@@ -13,8 +13,8 @@ use chrono::{DateTime, Local, FixedOffset};
 use url;
 use serde_json;
 
-use crate::imagefiles;
-//use crate::capture::Capture;
+use base64::prelude::*;
+use crate::imagefiles::{ImageFiles, OpenMode};
 
 const MAX_LEN: usize = 1024;
 
@@ -73,6 +73,8 @@ pub struct ControlServerInfo {
     pub post_interval: u32,
     pub capture_start_time: SystemTime,
     pub capture_end_time: SystemTime,
+    pub capture_frames_at_once: i32,
+    pub overwrite_saved: bool,
 }
 
 impl ControlServerInfo {
@@ -107,11 +109,13 @@ impl ControlServerInfo {
             one_shot_completed: false,
             autofocus_once: false,
             status_report: false,
-            status_report_interval: 60,
+            status_report_interval: 3600,
             last_posted_date_time: now,
             post_interval: 3600,
             capture_start_time: now,
             capture_end_time: now,
+            capture_frames_at_once: 0,
+            overwrite_saved: false,
         }
     }    
 }
@@ -270,6 +274,7 @@ impl ControlServer {
                 info!("Leap Time: {:?}", leap_time);
                 server_info.leap_time = leap_time;
                 // get capture start date & time
+                let default_capture_start_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64;
                 let capture_start_time = match json["captureStartTime"].as_str() {
                     Some(capture_start_time) => {
                         let capture_start_time = &format!("{}:00{}{:02}:00", capture_start_time, if server_info.timezone >= 0 {"+"} else {"-"},  server_info.timezone);
@@ -283,13 +288,13 @@ impl ControlServer {
                             }
                             Err(e) => {
                                 info!("Failed to parse capture start time: {:?}", e);
-                                SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64
+                                default_capture_start_time
                             }
                         };
                         SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(capture_start_time as u64)
                     }
                     None => {
-                        SystemTime::now()
+                        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(default_capture_start_time as u64)
                     }
                 };
                 // transfer capture_start_time to Time struct format
@@ -309,17 +314,33 @@ impl ControlServer {
                             }
                             Err(e) => {
                                 info!("Failed to parse capture end time: {:?}", e);
-                                SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64
+                                default_capture_start_time
                             }
                         };
                         SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(capture_end_time as u64)
                     }
                     None => {
-                        SystemTime::now()
+                        capture_start_time
                     }
                 };
                 // transfer capture_end_time to Time struct format
                 server_info.capture_end_time = capture_end_time;
+                // get capture frames at once
+                let capture_frames_at_once = match json["captureFramesAtOnce"].as_i64() {
+                    Some(capture_frames_at_once) => capture_frames_at_once as i32,
+                    None => {
+                        1
+                    }
+                };
+                server_info.capture_frames_at_once = capture_frames_at_once;
+                // get overwrite saved
+                let overwrite_saved = match json["overwriteSaved"].as_bool() {
+                    Some(overwrite_saved) => overwrite_saved,
+                    None => {
+                        false
+                    }
+                };
+                server_info.overwrite_saved = overwrite_saved;
                 server_info.need_to_save = true;
             }
             let response = request.into_ok_response();
@@ -567,28 +588,56 @@ impl ControlServer {
             let headers = [
                 ("Content-Type", "multipart/x-mixed-replace; boundary=--timeleapcamboundary"),
             ];
-            let mut response = request.into_response(200, Some("OK"), &headers).unwrap();
             let mut count = fromframe;
             let server_info_clone = server_info_get_image.clone();
-            loop {
-                if toframe >= 0 && count > toframe {
-                    break;
+            let file_path = format!("/eMMC/T{}/capture.dat", trackid().unwrap());
+            let mut r_image = match ImageFiles::new(Path::new(&file_path), OpenMode::Read) {
+                Ok(r_image) => r_image,
+                Err(e) => {
+                    info!("Failed to open file: {:?} {:?}", file_path, e);
+                    let response = request.into_ok_response();
+                    response?.write_all("No Capture Data".as_bytes())?;
+                    return Ok::<(), EspIOError>(());
                 }
-                let file_path = format!("/eMMC/T{}/I{}.jpg", trackid().unwrap(), count);
-                let buffer = imagefiles::read_file(Path::new(&file_path));
-                if buffer.len() == 0 {
-                    break;
+            };
+            match r_image.seek_image(count as u32){
+                Ok(_) => (),
+                Err(e) => {
+                    info!("Not found image: {:?}", e);
+                    let response = request.into_ok_response();
+                    response?.write_all("No Capture Data".as_bytes())?;
+                    return Ok::<(), EspIOError>(());
                 }
-                let mut server_info = server_info_clone.lock().unwrap();
-                server_info.last_access_time = SystemTime::now();
-                drop(server_info);
-                count += 1;
+            }
+            let mut response = request.into_response(200, Some("OK"), &headers).unwrap();
+            loop {    
+                // let get_time = SystemTime::now();
+                let buffer = match r_image.read_image(){
+                    Ok(buffer) => buffer,
+                    Err(e) => {
+                        info!("Failed to read image: {:?}", e);
+                        break;
+                    }
+                };
+                let read_size = buffer.len();
+                // let get_elapsed = get_time.elapsed().unwrap().as_millis();
+                // info!("Read image: {} bytes, elapsed: {} ms", read_size, get_elapsed);
+                // let send_time = SystemTime::now();
                 response.write_all("--timeleapcamboundary\r\n".as_bytes())?;
                 response.write_all("Content-Type: image/jpeg\r\n".as_bytes())?;
-                let context_length = format!("Content-Length: {}\r\n\r\n", buffer.len());
+                let context_length = format!("Content-Length: {}\r\n\r\n", read_size);
                 response.write_all(context_length.as_bytes())?;
                 response.write_all(&buffer)?;
                 response.write_all("\r\n".as_bytes())?;
+                // let send_elapsed = send_time.elapsed().unwrap().as_millis();
+                // info!("Send image: {} bytes, elapsed: {} ms", read_size, send_elapsed);
+                count += 1;
+                let mut server_info = server_info_clone.lock().unwrap();
+                server_info.last_access_time = SystemTime::now();
+                drop(server_info);    
+                if toframe >= 0 && count > toframe {
+                    break;
+                }
             }
             Ok::<(), EspIOError>(())
         }).unwrap();
@@ -659,32 +708,54 @@ impl ControlServer {
                 ("Content-Type", "multipart/x-mixed-replace; boundary=--timeleapcamboundary"),
                 ("Content-Disposition", "attachment; filename=\"image.jpeg\""),
             ];
-            let mut response = request.into_response(200, Some("OK"), &headers).unwrap();
             let mut count = fromframe;
             let server_info_clone = server_info_get_image.clone();
+            let file_path = format!("/eMMC/T{}/capture.dat", trackid().unwrap());
+            let mut r_image = match ImageFiles::new(Path::new(&file_path), OpenMode::Read) {
+                Ok(r_image) => r_image,
+                Err(e) => {
+                    info!("Failed to open file: {:?} {:?}", file_path, e);
+                    let response = request.into_ok_response();
+                    response?.write_all("No Capture Data".as_bytes())?;
+                    return Ok::<(), EspIOError>(());
+                }
+            };
+            match r_image.seek_image(count as u32){
+                Ok(_) => (),
+                Err(e) => {
+                    info!("Not found image: {:?}", e);
+                    let response = request.into_ok_response();
+                    response?.write_all("No Capture Data".as_bytes())?;
+                    return Ok::<(), EspIOError>(());
+                }
+            }
+            let mut response = request.into_response(200, Some("OK"), &headers).unwrap();
             let track_id = trackid().unwrap();
             loop {
-                if toframe >= 0 && count > toframe {
-                    break;
-                }
-                let file_path = format!("/eMMC/T{}/I{}.jpg", track_id, count);
-                let buffer = imagefiles::read_file(Path::new(&file_path));
-                if buffer.len() == 0 {
-                    break;
-                }
-                let mut server_info = server_info_clone.lock().unwrap();
-                server_info.last_access_time = SystemTime::now();
-                drop(server_info);
+                let buffer = match r_image.read_image(){
+                    Ok(buffer) => buffer,
+                    Err(e) => {
+                        info!("Failed to read image: {:?}", e);
+                        break;
+                    }
+                };
+                let read_size = buffer.len();
                 response.write_all("--timeleapcamboundary\r\n".as_bytes())?;
                 response.write_all("Content-Type: image/jpeg\r\n".as_bytes())?;
                 let filename = format!("t{}i{}.jpg", track_id, count);
                 response.write_all(format!("Content-Disposition: attachment; filename={}\r\n", filename).as_bytes())?;
-                let context_length = format!("Content-Length: {}\r\n\r\n", buffer.len());
+                let context_length = format!("Content-Length: {}\r\n\r\n", read_size);
                 response.write_all(context_length.as_bytes())?;
-                let base64 = base64::encode(&buffer);
+                let base64 = BASE64_STANDARD.encode(&buffer);
                 response.write_all(base64.as_bytes())?;
                 response.write_all("\r\n".as_bytes())?;
                 count += 1;
+                let mut server_info = server_info_clone.lock().unwrap();
+                server_info.last_access_time = SystemTime::now();
+                drop(server_info);
+                if toframe >= 0 && count > toframe {
+                    break;
+                }
             }
             Ok::<(), EspIOError>(())
         }).unwrap();
@@ -816,18 +887,20 @@ impl ControlServer {
             let last_posted_date_time_utc: DateTime<Local> = server_info.last_posted_date_time.into();
             let last_posted_date_time = DateTime::<Local>::from_naive_utc_and_offset(last_posted_date_time_utc.naive_utc(), fixed_offset);
             let lpdt_str = last_posted_date_time.format("%Y-%m-%d %H:%M:%S").to_string();
-            let state_json = format!("{{\"state\": \"{}\", \"rssi\": {}, \"battery_voltage\": {:.2}, \"capture_id\": {}, \"last_capture_date_time\": \"{}\", \"last_posted_date_time\": \"{}\"}}",
-                                     if server_info.capture_started {
-                                         "start"
-                                     } else {
-                                         "stop"
-                                     },
-                                     server_info.rssi,
-                                     server_info.battery_voltage,
-                                     server_info.current_capture_id,
-                                     if server_info.last_capture_date_time == SystemTime::UNIX_EPOCH { "N/A" } else { &lcdt_str },
-                                     if server_info.last_posted_date_time == SystemTime::UNIX_EPOCH { "N/A" } else { &lpdt_str },
-                                     );
+            let state_json = format!("{{\"state\": \"{}\", \"rssi\": {}, \"battery_voltage\": {:.2}, \"capture_id\": {}, \"last_capture_date_time\": \"{}\", \"last_posted_date_time\": \"{}\", \"capture_frames_at_once\": {}, \"overwrite_saved\": {}}}",
+                                        if server_info.capture_started {
+                                            "start"
+                                        } else {
+                                            "stop"
+                                        },
+                                        server_info.rssi,
+                                        server_info.battery_voltage,
+                                        server_info.current_capture_id,
+                                        if server_info.last_capture_date_time == SystemTime::UNIX_EPOCH { "N/A" } else { &lcdt_str },
+                                        if server_info.last_posted_date_time == SystemTime::UNIX_EPOCH { "N/A" } else { &lpdt_str },
+                                        server_info.capture_frames_at_once,
+                                        server_info.overwrite_saved,
+                                    );
             response?.write_all(state_json.as_bytes())?;
             Ok::<(), EspIOError>(())
         }).unwrap();
@@ -986,6 +1059,22 @@ impl ControlServer {
                 }
             };
             server_info.post_interval = post_interval;
+            // capture frames at once
+            let capture_frames_at_once = match json["captureFramesAtOnce"].as_i64() {
+                Some(capture_frames_at_once) => capture_frames_at_once as i32,
+                None => {
+                    0
+                }
+            };
+            server_info.capture_frames_at_once = capture_frames_at_once;
+            // get overwrite saved
+            let overwrite_saved = match json["overwriteSaved"].as_bool() {
+                Some(overwrite_saved) => overwrite_saved,
+                None => {
+                    false
+                }
+            };
+            server_info.overwrite_saved = overwrite_saved;
             server_info.need_to_save = true;
             server_info.last_access_time = SystemTime::now();
             let response = request.into_ok_response();
@@ -999,7 +1088,7 @@ impl ControlServer {
             let response = request.into_ok_response();
             let server_info = server_info_current_config.clone();
             let server_info = server_info.lock().unwrap();
-            let config_json = format!("{{\"resolution\": \"{}\", \"trackid\": {}, \"duration\": {}, \"timezone\": {}, \"idlesleep\": {}, \"autocapture\": {}, \"queryopenai\": {}, \"queryprompt\": \"{}\", \"openai_model\": \"{}\", \"autofocus_once\": {}, \"status_report\": {}, \"status_report_interval\": {}, \"post_interval\": {}, \"leaptime\": {{\"year\": {}, \"month\": {}, \"day\": {}, \"hour\": {}, \"minute\": {}}}}}",
+            let config_json = format!("{{\"resolution\": \"{}\", \"trackid\": {}, \"duration\": {}, \"timezone\": {}, \"idlesleep\": {}, \"autocapture\": {}, \"queryopenai\": {}, \"queryprompt\": \"{}\", \"openai_model\": \"{}\", \"autofocus_once\": {}, \"status_report\": {}, \"status_report_interval\": {}, \"post_interval\": {}, \"leaptime\": {{\"year\": {}, \"month\": {}, \"day\": {}, \"hour\": {}, \"minute\": {} }}, \"captureFramesAtOnce\": {}, \"overwriteSaved\": {}}}",
                                       ACCEPTABLE_RESOLUTIONS.iter()
                                       .find(|(_, value)| value == &server_info.resolution)
                                       .map(|(name, _)| *name).unwrap_or("VGA"),
@@ -1020,6 +1109,8 @@ impl ControlServer {
                                       server_info.leap_time.day,
                                       server_info.leap_time.hour,
                                       server_info.leap_time.minute,
+                                      server_info.capture_frames_at_once,
+                                      server_info.overwrite_saved,
                                     );
             response?.write_all(config_json.as_bytes())?;
             Ok::<(), EspIOError>(())
@@ -1087,6 +1178,11 @@ impl ControlServer {
     pub fn set_last_posted_date_time(&self, last_posted_date_time: SystemTime) {
         let mut server_info = self.server_info.lock().unwrap();
         server_info.last_posted_date_time = last_posted_date_time;
+    }
+
+    pub fn set_capture_frames_at_once(&self, capture_frames_at_once: i32) {
+        let mut server_info = self.server_info.lock().unwrap();
+        server_info.capture_frames_at_once = capture_frames_at_once;
     }
 }
 
@@ -1190,6 +1286,11 @@ function downloadTrackImages() {{
     var xhr = new XMLHttpRequest();
     xhr.open("GET", "/images?trackid=" + trackid + "&fromframe=0&toframe=-1&random_number=" + random_number, true);
     xhr.responseType = "blob";
+    xhr.addEventListener("progress", function(event) {{
+        // download status
+        var progress = event.loaded;
+        downloadButton.innerText = "Downloading " + progress + "Bytes";
+    }});
     xhr.onload = function() {{
         var url = window.URL.createObjectURL(xhr.response);
         // get multipart data
@@ -1612,6 +1713,17 @@ fn index_html(status: bool) -> String {
 <label for="captureEndTime">Capture End Time:</label></div>
 <div class="left">
 <input type="datetime-local" id="captureEndTime" name="captureEndTime" value="2021-01-01T00:00:00"></div></div>
+<div class="left">
+<label for="captureFramesAtOnce">Capture Frames At Once (sec):</label></div>
+<div class="left">
+<input type="number" id="captureFramesAtOnce" value="1"></div></div>
+<div class="clear">
+<div class="left">
+<label for="OverwriteSaved">Over Write Save:</label></div>
+<div class="left">
+<label class="switch"><input type="checkbox" id="OverwriteSaved">
+<span class="slider"></span></label>
+</div></div>
 <div class="clear">
 <canvas id="preview" width="320" height="240" onclick="getOneShot()"></canvas>
 </div>
@@ -1660,7 +1772,9 @@ function CaptureStart() {{
             "second": -1
         }},
         "captureStartTime": document.getElementById("captureStartTime").value,
-        "captureEndTime": document.getElementById("captureEndTime").value
+        "captureEndTime": document.getElementById("captureEndTime").value,
+        "captureFramesAtOnce": document.getElementById("captureFramesAtOnce").value - 0,
+        "overwriteSaved": document.getElementById("OverwriteSaved").checked,
     }}));
 }}
 function CaptureStop() {{
@@ -1694,6 +1808,8 @@ function getConfig() {{
             document.getElementById("leapday").value = config.leaptime.day;
             document.getElementById("leaphour").value = config.leaptime.hour;
             document.getElementById("leapminute").value = config.leaptime.minute;
+            document.getElementById("captureFramesAtOnce").value = config.captureFramesAtOnce;
+            document.getElementById("OverwriteSaved").checked = config.overwriteSaved;
         }}
     }};
     xhttp.open("GET", "/config", true);
@@ -2035,6 +2151,7 @@ fn config_html() -> String {
 <label for="openaiSelect">OpenAI Model:</label></div>
 <div class="left">
 <select id="openaiSelect">
+<option value="gpt-4o-mini">GPT-4o mini</option>
 <option value="gpt-4o">GPT-4o</option>
 <option value="gpt-4-turbo">GPT-4-Turbo</option>
 </select>
@@ -2072,6 +2189,21 @@ fn config_html() -> String {
 <input type="number" id="post_interval" value="300">
 </div></div>
 
+<div class="clear">
+<div class="left">
+<label for="captureFramesAtOnce">Capture Frames At Once (sec):</label></div>
+<div class="left">
+<input type="number" id="captureFramesAtOnce" value="1">
+</div></div>
+
+<div class="clear">
+<div class="left">
+<label for="OverwriteSaved">Over Write Save:</label></div>
+<div class="left">
+<label class="switch"><input type="checkbox" id="OverwriteSaved">
+<span class="slider"></span></label>
+</div></div>
+
 <div class="clear"> </div>
 <div class="center">
 <button class="btn save" onclick="saveConfig()">Save</button>
@@ -2090,6 +2222,8 @@ function saveConfig() {{
     var status_report_element = document.getElementById("status_report");
     var status_report_interval_element = document.getElementById("status_report_interval");
     var post_interval_element = document.getElementById("post_interval");
+    var captureFramesAtOnce_element = document.getElementById("captureFramesAtOnce");
+    var overwriteSaved_element = document.getElementById("OverwriteSaved");
     var xhr = new XMLHttpRequest();
     xhr.open("POST", "/config", true);
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -2104,7 +2238,9 @@ function saveConfig() {{
         "autofocus_once": document.getElementById("autofocusOnce").value,
         "status_report": status_report_element.value,
         "status_report_interval": status_report_interval_element.value - 0,
-        "post_interval": post_interval_element.value - 0
+        "post_interval": post_interval_element.value - 0,
+        "captureFramesAtOnce": captureFramesAtOnce_element.value - 0,
+        "overwriteSaved": overwriteSaved_element.checked
     }}));
 }}
 
@@ -2125,6 +2261,8 @@ function getConfig() {{
             document.getElementById("status_report").value = config.status_report;
             document.getElementById("status_report_interval").value = config.status_report_interval;
             document.getElementById("post_interval").value = config.post_interval;
+            document.getElementById("captureFramesAtOnce").value = config.captureFramesAtOnce;
+            document.getElementById("OverwriteSaved").checked = config.overwriteSaved;
         }}
     }};
     xhttp.open("GET", "/config", true);

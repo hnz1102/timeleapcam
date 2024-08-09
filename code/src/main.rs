@@ -15,8 +15,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use chrono::{DateTime, Utc};
 use chrono::{Local, Duration as ChronoDuration, FixedOffset, NaiveDate, Datelike, Timelike};
 
-//use esp_hal_procmacros::ram;
-
 mod wifi;
 mod capture;
 mod autofocus;
@@ -71,6 +69,9 @@ static mut CAPTURE_START_TIME: u64 = 0;
 
 #[link_section = ".rtc.data"]
 static mut CAPTURE_END_TIME: u64 = 0;
+
+#[link_section = ".rtc.data"]
+static mut LAST_STATUS_POSTED_TIME: u64 = 0;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
@@ -192,13 +193,16 @@ fn main() -> anyhow::Result<()> {
     server_info.last_capture_date_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_CAPTURE_TIME });
     server_info.last_posted_date_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_POSTED_TIME });
     server_info.capture_start_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { CAPTURE_START_TIME });
-    server_info.capture_end_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { CAPTURE_END_TIME });
+    server_info.capture_end_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { CAPTURE_END_TIME });    
     server_info.query_prompt = config_data.query_prompt.clone();
     server_info.query_openai = config_data.query_openai;
     server_info.openai_model = config_data.model.clone();
     server_info.status_report = config_data.status_report;
     server_info.status_report_interval = config_data.status_report_interval;
     server_info.post_interval = config_data.post_interval;
+    server_info.capture_frames_at_once = config_data.capture_frames_at_once;
+    server_info.overwrite_saved = config_data.overwrite_saved;
+    let mut last_status_posted_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_STATUS_POSTED_TIME });
     let mut next_capture_time = UNIX_EPOCH + Duration::from_secs(unsafe { NEXT_CAPTURE_TIME });
     let mut capture_count = unsafe { IMAGE_COUNT_ID };
     let mut current_track_id = server_info.track_id;
@@ -282,7 +286,6 @@ fn main() -> anyhow::Result<()> {
                 }
             };
             server.start();
-            server.set_server_info(server_info.clone());
             server_enalbed = true;
             Some(server)
         },
@@ -293,8 +296,6 @@ fn main() -> anyhow::Result<()> {
 
     // Initialize the camera
     let cam = Camera::new(
-        peripherals.pins.gpio43,    // PWDN
-        peripherals.pins.gpio0,     // RESET
         peripherals.pins.gpio48,    // XCLK
         peripherals.pins.gpio42,    // SIOD
         peripherals.pins.gpio41,    // SIOC
@@ -309,9 +310,9 @@ fn main() -> anyhow::Result<()> {
         peripherals.pins.gpio40,    // VSYNC
         peripherals.pins.gpio39,    // HREF
         peripherals.pins.gpio13,    // PCLK
-        5000000,                    // XCLK frequency
-        6,                         // JPEG quality
-        1,                         // Frame buffer count
+        25000000,                   // XCLK frequency
+        10,                         // JPEG quality
+        3,                          // Frame buffer count
         camera::camera_grab_mode_t_CAMERA_GRAB_LATEST,        // grab mode
         //camera::camera_grab_mode_t_CAMERA_GRAB_WHEN_EMPTY,    // grab mode
         current_resolution,        // frame size have to be maximum resolution
@@ -339,9 +340,12 @@ fn main() -> anyhow::Result<()> {
     if operating_mode {
         unsafe { DEEP_SLEEP_AUTO_CAPTURE = false; }
         config_data.auto_capture = false;
+        server_info.last_access_time = SystemTime::now();
+        server.as_mut().unwrap().set_server_info(server_info.clone());
     }
 
     let mut one_shot = false;
+    let mut movie_mode = false;
     loop {
         // imagefiles::list_files(Path::new("/eMMC"));
         if config_data.auto_capture || unsafe { DEEP_SLEEP_AUTO_CAPTURE } {
@@ -378,6 +382,8 @@ fn main() -> anyhow::Result<()> {
                 config_data.leap_day = server_info.leap_time.day;
                 config_data.leap_hour = server_info.leap_time.hour;
                 config_data.leap_minute = server_info.leap_time.minute;
+                config_data.capture_frames_at_once = server_info.capture_frames_at_once;
+                config_data.overwrite_saved = server_info.overwrite_saved;
                 let save_config = config_data.get_all_config();
                 let toml_cfg = convert_config_to_toml_string(&save_config);
                 match nvs.set_str("config", toml_cfg.as_str()) {
@@ -395,6 +401,7 @@ fn main() -> anyhow::Result<()> {
                     let last_access_time = server_info.last_access_time.elapsed().unwrap().as_secs();
                     if last_access_time > config_data.idle_in_sleep_time as u64 {
                         operating_mode = false;
+                        info!("Idle time {:?} over. Go to sleep", last_access_time);
                         emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
                         deep_and_light_sleep_start(SleepMode::SleepModeDeep, 0);
                     }
@@ -409,14 +416,21 @@ fn main() -> anyhow::Result<()> {
                     // millisecond
                     let push_time = touchpad.get_button_press_time(Key::Center);
                     if push_time > 3000 {
-                        info!("Long press center key");
+                        info!("Long press center key {}", push_time);
                         server_info.capture_started = true;
+                        server_info.capture_frames_at_once = -1;
+                        movie_mode = true;
                         server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+                        server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
+
                     }
                     else {
-                        info!("Short press center key");
-                        server_info.capture_started = true;
+                        info!("Center key down");
+                        server_info.capture_started = false;
+                        server_info.capture_frames_at_once = 0;
+                        movie_mode = false;
                         server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+                        server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
                     }
                     if server_info.duration == 0 && server_info.leap_time.day < 0
                         && server_info.leap_time.hour < 0 && server_info.leap_time.minute < 0 {
@@ -436,8 +450,10 @@ fn main() -> anyhow::Result<()> {
             current_resolution = server_info.resolution;
             capture.change_resolution(current_resolution);
         }
+        capture.set_capturing_duration(server_info.capture_frames_at_once);
         if server_info.capture_started {
             info!("Capture started");
+
             if current_track_id != server_info.track_id {
                 info!("Track ID changed: {} -> {}", current_track_id, server_info.track_id); 
                 current_track_id = server_info.track_id;
@@ -453,17 +469,30 @@ fn main() -> anyhow::Result<()> {
             }
             if capture_count == 0 {
                 next_capture_time = SystemTime::now();
+                capture.set_overwrite_saved(server_info.overwrite_saved);
             }
-            info!("Capture Track ID: {} Count: {} Resolution: {}", current_track_id, capture_count, current_resolution);
-            capture.capture_request(current_track_id, capture_count);
+            else {
+                capture.set_overwrite_saved(false);
+            }
+            if movie_mode && capture_count == 0 || !movie_mode {
+                info!("Capture Started Track ID: {} Count: {} Resolution: {}", current_track_id, capture_count, current_resolution);
+                capture.capture_request(current_track_id, capture_count);
+            }
+            if movie_mode {
+                capture_count += 1;
+                thread::sleep(Duration::from_millis(100));
+                continue;
+            }
             loop {
                 if capture.get_capture_status() {
                     info!("Capture done");
                     break;
                 }
-                thread::sleep(Duration::from_millis(10));
+                thread::sleep(Duration::from_millis(100));
             }
+            capture_count = capture.get_capture_id();
             if server_info.query_openai {
+                info!("Query OpenAI: Track :{} frame No.:{}", current_track_id, capture_count);
                 monitoring_thread.set_query_start(server_info.query_prompt.clone(), current_track_id, capture_count);
                 loop {
                     if !monitoring_thread.get_query_status() {
@@ -482,7 +511,7 @@ fn main() -> anyhow::Result<()> {
             let capture_info = capture.get_capture_info();
             if capture_info.status {
                 info!("Write done {}: width:{} height:{} image_size:{}", capture_count, capture_info.width, capture_info.height, capture_info.size);
-                if server_info.status_report && (capture_count % server_info.status_report_interval) == 0 {
+                if server_info.status_report && (last_status_posted_time.elapsed().unwrap().as_secs() > server_info.status_report_interval as u64) {
                     // capture time
                     let dt_utc : DateTime<Utc> = DateTime::<Utc>::from(SystemTime::now());
                     let fixed_offset = FixedOffset::east_opt(server_info.timezone * 3600).unwrap();
@@ -498,14 +527,16 @@ fn main() -> anyhow::Result<()> {
                         }
                         thread::sleep(Duration::from_millis(10));
                     }
+                    last_status_posted_time = SystemTime::now();
                 }    
                 server_info.last_capture_date_time = SystemTime::now();
                 if server_enalbed {
                     server.as_mut().unwrap().set_last_capture_date_time(server_info.last_capture_date_time);
                 }
-                capture_count += 1;
+                capture_count = capture_info.capture_id;
                 server_info.current_capture_id = capture_count;
             }
+
             if one_shot {
                 server_info.capture_started = false;
                 capture_count = 0;
@@ -539,6 +570,7 @@ fn main() -> anyhow::Result<()> {
                         LAST_POSTED_TIME = server_info.last_posted_date_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                         CAPTURE_START_TIME = server_info.capture_start_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                         CAPTURE_END_TIME = server_info.capture_end_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        LAST_STATUS_POSTED_TIME = last_status_posted_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                     }
                     emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
                     deep_and_light_sleep_start(SleepMode::SleepModeDeep, 0);
@@ -577,6 +609,7 @@ fn main() -> anyhow::Result<()> {
                         LAST_POSTED_TIME = server_info.last_posted_date_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                         CAPTURE_START_TIME = server_info.capture_start_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                         CAPTURE_END_TIME = server_info.capture_end_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        LAST_STATUS_POSTED_TIME = last_status_posted_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                     }
                     emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
                     deep_and_light_sleep_start(SleepMode::SleepModeDeep, sleep_time.as_secs());

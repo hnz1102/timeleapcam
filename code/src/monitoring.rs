@@ -12,10 +12,11 @@ use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use url::Url;
 
+use base64::prelude::*;
 type HmacSha256 = Hmac<Sha256>;
 const EXPIRATION: u64 = 60 * 60 * 24; // 1 day
 
-use crate::imagefiles;
+use crate::imagefiles::{ImageFiles, OpenMode};
 
 struct QueryOpenAI {
     pub api_key: String,
@@ -100,12 +101,20 @@ impl Monitoring {
                 let mut openai = openai_info.lock().unwrap();
                 let mut postmsg = post_message_info.lock().unwrap();
                 if openai.query_start {
+                    postmsg.posted_status = false;
+                    openai.reply = String::from("");
                     if postmsg.post_interval > 0 && postmsg.last_posted_date_time.elapsed().unwrap().as_secs() < postmsg.post_interval as u64 {
                         info!("Post interval not reached");
                     }
                     else {
-                        let file_path = format!("/eMMC/T{}/I{}.jpg", openai.track_id, openai.count);
-                        let buffer = imagefiles::read_file(Path::new(&file_path));
+                        let buffer = match get_one_image(openai.track_id, openai.count){
+                            Ok(buffer) => buffer,
+                            Err(e) => {
+                                info!("Failed to get image: {:?}", e);
+                                openai.query_start = false;
+                                continue;
+                            }
+                        };
                         let result = query_to_openai(openai.api_key.clone(), openai.model.clone(),
                             openai.prompt.clone(), openai.detail.clone(), openai.max_tokens,
                             openai.timeout, &buffer);
@@ -163,8 +172,14 @@ impl Monitoring {
                     openai.query_start = false;
                 }
                 if postmsg.post_message_request {
-                    let file_path = format!("/eMMC/T{}/I{}.jpg", postmsg.track_id, postmsg.count);
-                    let buffer = imagefiles::read_file(Path::new(&file_path));
+                    let buffer = match get_one_image(postmsg.track_id, postmsg.count){
+                        Ok(buffer) => buffer,
+                        Err(e) => {
+                            info!("Failed to get image: {:?}", e);
+                            postmsg.post_message_request = false;
+                            continue;
+                        }
+                    };
                     let filename = format!("t{}i{}.jpg", postmsg.track_id, postmsg.count);
                     let image_url = post_image(postmsg.storage_url.clone(),
                             postmsg.storage_account.clone(),
@@ -200,7 +215,7 @@ impl Monitoring {
                             for image in list.as_array().unwrap() {
                                 let image_id = image["id"].as_str().unwrap();
                                 let upload_date = image["uploaded"].as_str().unwrap();
-                                info!("Image ID: {:?} Uploaded: {:?}", image_id, upload_date);
+                                info!("Image ID: {:?} Uploaded Date: {:?}", image_id, upload_date);
                                 // parse upload date <2024-06-21T12:23:13.576Z> to seconds
                                 let upload_date_sec_utc = upload_date.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp();
                                 // upload date is older than EXPIRATION
@@ -278,13 +293,41 @@ impl Monitoring {
         let mut postmsg = self.postmsg.lock().unwrap();
         postmsg.last_posted_date_time = datetime;
         postmsg.post_interval = post_interval;
-    }
+    }    
 }
+
+fn get_one_image(track_id: u32, count: u32) -> anyhow::Result<Vec<u8>> {
+    let file_path = format!("/eMMC/T{}/capture.dat", track_id);
+    let mut imagefiles = match ImageFiles::new(Path::new(&file_path), OpenMode::Read) {
+        Ok(imagefiles) => imagefiles,
+        Err(e) => {
+            info!("Failed to open file: {:?}", e);
+            return Err(anyhow::anyhow!("Failed to open file"));
+        }
+    };
+    match imagefiles.seek_image(count) {
+        Ok(_) => {}
+        Err(e) => {
+            info!("Failed to seek file: {:?}", e);
+            return Err(anyhow::anyhow!("Failed to seek file"));
+        }
+    }
+    let buffer = match imagefiles.read_image() {
+        Ok(buffer) => buffer,
+        Err(e) => {
+            info!("Failed to read file: {:?}", e);
+            return Err(anyhow::anyhow!("Failed to read file"));
+        }
+    };
+    Ok(buffer)
+}
+
+
 
 fn query_to_openai(api_key: String, model: String, prompt: String,
                  detail: String, max_tokens: u32,
                  timeout: u32, buffer: &Vec<u8>) -> anyhow::Result<String> {    
-    let base64_image = base64::encode(buffer);
+    let base64_image = BASE64_STANDARD.encode(buffer);
     let jsonstr = format!(r#"{{"model": "{}", "messages": [
 {{"role": "user", "content": [
     {{"type": "text", "text": "{}"}},

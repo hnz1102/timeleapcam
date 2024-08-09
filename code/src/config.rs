@@ -53,6 +53,10 @@ pub struct Config {
     leap_hour: &'static str,
     #[default("-1")]
     leap_minute: &'static str,
+    #[default("0")]
+    capture_frames_at_once: &'static str,
+    #[default("false")]
+    overwrite_saved: &'static str,
 }
 
 const MENU_SSID: (&str, &str) = ("SSID", "ssid");
@@ -80,6 +84,8 @@ const MENU_POSTINTERVAL: (&str, &str) = ("POSTINTERVAL", "postinterval");
 const MENU_LEAPDAY: (&str, &str) = ("LEAPDAY", "leapday");
 const MENU_LEAPHOUR: (&str, &str) = ("LEAPHOUR", "leaphour");
 const MENU_LEAPMINUTE: (&str, &str) = ("LEAPMINUTE", "leapminute");
+const MENU_CAPTUREFRAMESATONCE: (&str, &str) = ("CAPTUREFRAMESATONCE", "captureframesatonce");
+const MENU_OVERWRITESAVED: (&str, &str) = ("OVERWRITESAVED", "overwritesaved");
 
 #[derive(Debug)]
 pub struct ConfigData {
@@ -108,6 +114,8 @@ pub struct ConfigData {
     pub leap_day: i32,
     pub leap_hour: i32,
     pub leap_minute: i32,
+    pub capture_frames_at_once: i32,
+    pub overwrite_saved: bool,
 }
 
 impl ConfigData {
@@ -138,6 +146,8 @@ impl ConfigData {
             leap_day: -1,
             leap_hour: -1,
             leap_minute: -1,
+            capture_frames_at_once: 0,
+            overwrite_saved: false,
         }
     }
     pub fn load_config(&mut self, nvs_value: Option<&str>) -> anyhow::Result<()> {
@@ -173,6 +183,8 @@ impl ConfigData {
         self.leap_day = settings_map.get(MENU_LEAPDAY.1).ok_or(anyhow::Error::msg("leap_day not found"))?.parse::<i32>()?;
         self.leap_hour = settings_map.get(MENU_LEAPHOUR.1).ok_or(anyhow::Error::msg("leap_hour not found"))?.parse::<i32>()?;
         self.leap_minute = settings_map.get(MENU_LEAPMINUTE.1).ok_or(anyhow::Error::msg("leap_minute not found"))?.parse::<i32>()?;
+        self.capture_frames_at_once = settings_map.get(MENU_CAPTUREFRAMESATONCE.1).ok_or(anyhow::Error::msg("capture_frames_at_once not found"))?.parse::<i32>()?;
+        self.overwrite_saved = settings_map.get(MENU_OVERWRITESAVED.1).ok_or(anyhow::Error::msg("overwrite_saved not found"))?.parse::<bool>()?;
         Ok(())
     }
     
@@ -203,6 +215,8 @@ impl ConfigData {
         default_config.push((MENU_LEAPDAY.0.to_string(), CONFIG.leap_day.to_string()));
         default_config.push((MENU_LEAPHOUR.0.to_string(), CONFIG.leap_hour.to_string()));
         default_config.push((MENU_LEAPMINUTE.0.to_string(), CONFIG.leap_minute.to_string()));
+        default_config.push((MENU_CAPTUREFRAMESATONCE.0.to_string(), CONFIG.capture_frames_at_once.to_string()));
+        default_config.push((MENU_OVERWRITESAVED.0.to_string(), CONFIG.overwrite_saved.to_string()));
         default_config
     }
 
@@ -234,6 +248,8 @@ impl ConfigData {
         all_config.push((MENU_LEAPDAY.0.to_string(), self.leap_day.to_string()));
         all_config.push((MENU_LEAPHOUR.0.to_string(), self.leap_hour.to_string()));
         all_config.push((MENU_LEAPMINUTE.0.to_string(), self.leap_minute.to_string()));
+        all_config.push((MENU_CAPTUREFRAMESATONCE.0.to_string(), self.capture_frames_at_once.to_string()));
+        all_config.push((MENU_OVERWRITESAVED.0.to_string(), self.overwrite_saved.to_string()));
         all_config
     }    
 }
