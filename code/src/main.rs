@@ -204,15 +204,15 @@ fn main() -> anyhow::Result<()> {
     server_info.overwrite_saved = config_data.overwrite_saved;
     let mut last_status_posted_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_STATUS_POSTED_TIME });
     let mut next_capture_time = UNIX_EPOCH + Duration::from_secs(unsafe { NEXT_CAPTURE_TIME });
-    let mut capture_count = unsafe { IMAGE_COUNT_ID };
+    let mut capture_id = unsafe { IMAGE_COUNT_ID };
     let mut current_track_id = server_info.track_id;
     let mut current_duration = server_info.duration;
     let dt_utc : DateTime<Utc> = DateTime::<Utc>::from(next_capture_time);
     let fixed_offset = FixedOffset::east_opt(config_data.timezone_offset * 3600).unwrap();
     let dt_local = DateTime::<Local>::from_naive_utc_and_offset(dt_utc.naive_utc(), fixed_offset);
-    info!("Next Capture Time: {}", dt_local.format("%Y-%m-%d %H:%M:%S"));
+    info!("Next Capture Time: {} Capture Count: {}", dt_local.format("%Y-%m-%d %H:%M:%S"), capture_id);
 
-    let status_post_need = server_info.status_report && (capture_count % server_info.status_report_interval) == 0;
+    let status_post_need = server_info.status_report && (capture_id % server_info.status_report_interval) == 0;
     // current_settings into server_info
     server_info.leap_time = LeapTime {
         year: -1,
@@ -295,6 +295,10 @@ fn main() -> anyhow::Result<()> {
     };
 
     // Initialize the camera
+    let xclk = match server_info.capture_frames_at_once == 0 && ! operating_mode {
+        true => 5000000,
+        false => 25000000,
+    };
     let cam = Camera::new(
         peripherals.pins.gpio48,    // XCLK
         peripherals.pins.gpio42,    // SIOD
@@ -310,9 +314,9 @@ fn main() -> anyhow::Result<()> {
         peripherals.pins.gpio40,    // VSYNC
         peripherals.pins.gpio39,    // HREF
         peripherals.pins.gpio13,    // PCLK
-        25000000,                   // XCLK frequency
+        xclk,                       // XCLK frequency
         10,                         // JPEG quality
-        3,                          // Frame buffer count
+        2,                          // Frame buffer count (back to 2 for double buffering)
         camera::camera_grab_mode_t_CAMERA_GRAB_LATEST,        // grab mode
         //camera::camera_grab_mode_t_CAMERA_GRAB_WHEN_EMPTY,    // grab mode
         current_resolution,        // frame size have to be maximum resolution
@@ -457,29 +461,29 @@ fn main() -> anyhow::Result<()> {
             if current_track_id != server_info.track_id {
                 info!("Track ID changed: {} -> {}", current_track_id, server_info.track_id); 
                 current_track_id = server_info.track_id;
-                capture_count = 0;
+                capture_id = 0;
             }
             if server_info.autofocus_once {
-                if capture_count == 0 {
+                if capture_id == 0 {
                     capture.autofocus_request();
                 }
             }
             else {
                 capture.autofocus_request();
             }
-            if capture_count == 0 {
+            if capture_id == 0 {
                 next_capture_time = SystemTime::now();
                 capture.set_overwrite_saved(server_info.overwrite_saved);
             }
             else {
                 capture.set_overwrite_saved(false);
             }
-            if movie_mode && capture_count == 0 || !movie_mode {
-                info!("Capture Started Track ID: {} Count: {} Resolution: {}", current_track_id, capture_count, current_resolution);
-                capture.capture_request(current_track_id, capture_count);
+            if movie_mode && capture_id == 0 || !movie_mode {
+                info!("Capture Started Track ID: {} Count: {} Resolution: {}", current_track_id, capture_id, current_resolution);
+                capture.capture_request(current_track_id, capture_id);
             }
             if movie_mode {
-                capture_count += 1;
+                capture_id += 1;
                 thread::sleep(Duration::from_millis(100));
                 continue;
             }
@@ -490,10 +494,11 @@ fn main() -> anyhow::Result<()> {
                 }
                 thread::sleep(Duration::from_millis(100));
             }
-            capture_count = capture.get_capture_id();
+            // get last capture id
+            capture_id = capture.get_capture_id();
             if server_info.query_openai {
-                info!("Query OpenAI: Track :{} frame No.:{}", current_track_id, capture_count);
-                monitoring_thread.set_query_start(server_info.query_prompt.clone(), current_track_id, capture_count);
+                info!("Query OpenAI: Track :{} frame No.:{}", current_track_id, capture_id);
+                monitoring_thread.set_query_start(server_info.query_prompt.clone(), current_track_id, capture_id);
                 loop {
                     if !monitoring_thread.get_query_status() {
                         let reply = monitoring_thread.get_query_reply();
@@ -510,7 +515,7 @@ fn main() -> anyhow::Result<()> {
             }
             let capture_info = capture.get_capture_info();
             if capture_info.status {
-                info!("Write done {}: width:{} height:{} image_size:{}", capture_count, capture_info.width, capture_info.height, capture_info.size);
+                info!("Write Frame ID {}: width:{} height:{} image_size:{}", capture_id, capture_info.width, capture_info.height, capture_info.size);
                 if server_info.status_report && (last_status_posted_time.elapsed().unwrap().as_secs() > server_info.status_report_interval as u64) {
                     // capture time
                     let dt_utc : DateTime<Utc> = DateTime::<Utc>::from(SystemTime::now());
@@ -518,9 +523,9 @@ fn main() -> anyhow::Result<()> {
                     let dt_local = DateTime::<Local>::from_naive_utc_and_offset(dt_utc.naive_utc(), fixed_offset);
                     let capture_time = dt_local.format("%Y-%m-%d %H:%M:%S").to_string();
                     let message = format!("STATUS REPORT: {}:{} {} {}V {}dBm", 
-                        current_track_id, capture_count, capture_time,
+                        current_track_id, capture_id, capture_time,
                          battery_voltage, wifi::get_rssi());
-                    monitoring_thread.post_message_request(message, current_track_id, capture_count);
+                    monitoring_thread.post_message_request(message, current_track_id, capture_id);
                     loop {
                         if !monitoring_thread.get_post_message_status() {
                             break;
@@ -533,13 +538,14 @@ fn main() -> anyhow::Result<()> {
                 if server_enalbed {
                     server.as_mut().unwrap().set_last_capture_date_time(server_info.last_capture_date_time);
                 }
-                capture_count = capture_info.capture_id;
-                server_info.current_capture_id = capture_count;
+                server_info.current_capture_id = capture_id;
+                // increment capture_id
+                capture_id += 1;
             }
 
             if one_shot {
                 server_info.capture_started = false;
-                capture_count = 0;
+                capture_id = 0;
                 server.as_mut().unwrap().set_one_shot_completed();
                 thread::sleep(Duration::from_millis(100));
                 continue;
@@ -559,9 +565,9 @@ fn main() -> anyhow::Result<()> {
                     if server_enalbed {
                         server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
                     }
-                    capture_count = 0;
+                    capture_id = 0;
                     unsafe {
-                        IMAGE_COUNT_ID = capture_count;
+                        IMAGE_COUNT_ID = capture_id;
                         DEEP_SLEEP_AUTO_CAPTURE = server_info.capture_started;
                         DURATION_TIME = current_duration;
                         CURRENT_RESOLUTION = current_resolution;
@@ -599,7 +605,7 @@ fn main() -> anyhow::Result<()> {
                 }
                 _ => {
                     unsafe {
-                        IMAGE_COUNT_ID = capture_count;
+                        IMAGE_COUNT_ID = capture_id;
                         DEEP_SLEEP_AUTO_CAPTURE = true;
                         NEXT_CAPTURE_TIME = next_capture_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                         DURATION_TIME = current_duration;
@@ -617,8 +623,8 @@ fn main() -> anyhow::Result<()> {
             }
         }
         else {
-            if capture_count > 0 {
-                capture_count = 0;
+            if capture_id > 0 {
+                capture_id = 0;
             }
             thread::sleep(Duration::from_millis(100));
         }

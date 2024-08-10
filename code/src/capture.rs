@@ -96,6 +96,7 @@ impl Capture {
                 if request {
                     info!("Capture Start...");
                     camera.return_all_framebuffers();
+                    thread::sleep(Duration::from_millis(1000));
                     let mut infolk = info.lock().unwrap();
                     if infolk.wait_focus {
                         autofocus.autofocus();
@@ -133,7 +134,7 @@ impl Capture {
                     loop {
                         let start_capture = SystemTime::now();
                         let frame = camera.get_framebuffer();
-                        let end_capture = start_capture.elapsed().unwrap().as_millis();
+                        let end_capture = start_capture.elapsed().unwrap().as_micros();
                         average_capture_time += end_capture;
                         match frame {
                             Some(frame) => {
@@ -153,7 +154,7 @@ impl Capture {
                                         break;
                                     }
                                 }
-                                let end_write = start_write.elapsed().unwrap().as_millis();
+                                let end_write = start_write.elapsed().unwrap().as_micros();
                                 average_write_time += end_write;
                                 loop_count += 1;
                                 camera.return_framebuffer(frame);
@@ -167,6 +168,7 @@ impl Capture {
                                 }
                                 else if infolk_loop.capturing_duration < 0 {
                                     // infinite
+                                    // capture until capturing_duration is set to 0, therefore we need to check it as latest as possible
                                 }
                                 else {
                                     // only one frame
@@ -180,21 +182,23 @@ impl Capture {
                             }
                         }
                         if loop_count % 100 == 0 {
-                            let capture_duration = start_capture_time.elapsed().unwrap().as_millis();
-                            info!("Capture Duration: {}/{} {}ms {}fps {:.3}MB/S",
+                            let capture_duration = start_capture_time.elapsed().unwrap().as_micros();
+                            info!("Capture Duration: {}/{} {}fps {:.3}MB/S",
                                 success_count, loop_count, 
-                                capture_duration, 
-                                loop_count * 1000 / capture_duration as u32,
-                                write_data_size as f32 / capture_duration as f32 / 1000.0);
+                                loop_count as u64 * 1000000 / capture_duration as u64,
+                                write_data_size as f32 / capture_duration as f32);
                         }
                     }
                     imgfile.flush();
                     let write_images = imgfile.get_nof_images();
                     drop(imgfile);
-                    let capture_duration = start_capture_time.elapsed().unwrap().as_millis();
-                    info!("Capture Frames: {} Total Frames: {} Duration:{}ms {}fps {}KB", loop_count, write_images, capture_duration, loop_count * 1000 / capture_duration as u32, write_data_size / 1000);
-                    info!("Average Capture Time:{}ms", average_capture_time as u32 / loop_count);
-                    info!("Average Write Time:{}ms", average_write_time as u32 / loop_count);
+                    let capture_duration = start_capture_time.elapsed().unwrap().as_micros();
+                    info!("Capture Frames: {} Total Frames: {} Duration:{}us {}fps {}KB", 
+                        loop_count, write_images, capture_duration,
+                        loop_count as u64 * 1000000 / capture_duration as u64,
+                        write_data_size / 1024);
+                    info!("Average Capture Time:{}us", average_capture_time as u64 / loop_count as u64);
+                    info!("Average Write Time:{}us", average_write_time as u64 / loop_count as u64);
                     let mut infolk = info.lock().unwrap();
                     infolk.capture_id = if write_images > 0 { write_images - 1 } else { 0 };
                     infolk.size = size;

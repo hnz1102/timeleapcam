@@ -4,7 +4,10 @@ use esp_idf_sys::sdmmc_slot_config_t;
 use esp_idf_sys::sdmmc_card_t;
 use esp_idf_sys::sdmmc_host_t;
 
-const SDMMC_SLOT_CONFIG_WIDTH : u8 = 8;
+const SDMMC_HOST_SLOT_0 : i32 = 0;
+// const SDMMC_HOST_SLOT_1 : i32 = 1;
+// const SDMMC_SLOT_CONFIG_WIDTH_4 : u8 = 4;
+const SDMMC_SLOT_CONFIG_WIDTH_8 : u8 = 8;
 const SDMMC_SLOT_CONFIG_CLK : i32 = 21;
 const SDMMC_SLOT_CONFIG_CMD : i32 = 45;
 const SDMMC_SLOT_CONFIG_D0 : i32 = 4;
@@ -22,6 +25,7 @@ const SDMMC_FREQ_52M: i32 = 52000;
 // const SDMMC_FREQ_30M: i32 = 30000;
 // const SDMMC_FREQ_10M: i32 = 10000;
 // const SDMMC_FREQ_2M: i32 = 2000;
+// const SDMMC_HOST_FLAG_DDR: u32 = 1 << 4;
 
 const MOUNT_POINT : &[u8] = b"/eMMC\0";
 
@@ -35,8 +39,9 @@ impl EMMCHost {
     pub fn new() -> EMMCHost {
         EMMCHost {
             host : Box::into_raw(Box::new(esp_idf_sys::sdmmc_host_t {
-                flags: SDMMC_HOST_FLAG_8BIT,
-                slot: 0,
+                // flags: SDMMC_HOST_FLAG_4BIT | SDMMC_HOST_FLAG_DDR,
+                flags: SDMMC_HOST_FLAG_8BIT, // SDR
+                slot: SDMMC_HOST_SLOT_0,
                 max_freq_khz: SDMMC_FREQ_52M,
                 io_voltage: 3.3,
                 init: Some(esp_idf_sys::sdmmc_host_init),
@@ -58,7 +63,7 @@ impl EMMCHost {
             })),
             card: std::ptr::null_mut(),
             slot_config: esp_idf_sys::sdmmc_slot_config_t {
-                width: SDMMC_SLOT_CONFIG_WIDTH,
+                width: SDMMC_SLOT_CONFIG_WIDTH_8,
                 clk: SDMMC_SLOT_CONFIG_CLK,
                 cmd: SDMMC_SLOT_CONFIG_CMD,
                 d0: SDMMC_SLOT_CONFIG_D0,
@@ -85,7 +90,7 @@ impl EMMCHost {
         let mount_config = esp_idf_sys::esp_vfs_fat_sdmmc_mount_config_t {
             format_if_mount_failed: true,
             max_files: 5,
-            allocation_unit_size: 512,
+            allocation_unit_size: 4096, // change from 512 to 4096. it needs to format the eMMC.
             disk_status_check_enable: false,
         };
 
@@ -102,6 +107,15 @@ impl EMMCHost {
             )
         };
 
+        let get_bus_width = unsafe {
+            (*self.host).get_bus_width.unwrap()(0)
+        };
+        let get_clock = unsafe {
+            let mut freq = 0;
+            (*self.host).get_real_freq.unwrap()(0, &mut freq);
+            freq
+        };
+        info!("Bus width: {} Freq: {} KHz", get_bus_width, get_clock);
         match mount_emmc {
             esp_idf_sys::ESP_OK => {
                 println!("eMMC mounted successfully");

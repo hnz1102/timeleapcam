@@ -10,7 +10,7 @@
 ## Overview
 The TIME LEAP CAM is an autofocus camera designed for long-duration time-lapse photography. Named for its ability to "leap" through time, this camera is ideal for monitoring over extended periods. It operates on battery power and features a DeepSleep mode to conserve energy when not actively shooting. Images are stored on a 64GB eMMC within one of eleven designated folders.
 
-Update v0.3.0
+Update v0.3.1
 - Added the movie shooting function. The movie is created by combining the images taken at the specified cycle. 
  Capture Frames At Once (sec): The number of frames to capture at once. The default is 0, which means that the image is captured one by one. If you set it to 1, the image is captured during the 1 sec. If you set image resolution to VGA, the image is captured by 27 fps. HD is 15 - 27 fps. Full HD is 6 fps.
 - Capture images are stored by appending the file. If you set to "Over Write Save", the image is overwritten. 
@@ -20,6 +20,11 @@ Update v0.3.0
 - Change the Report Interval: The default is 3600 sec. The report interval is changed to 3600 sec. The status report is sent to LINE when the specified cycle is reached.
 - Camera interface is changed. Power Down, Reset pin is removed. In previous version, the power down pin and reset
 pin are assigned by dumy GPIO pin. The 'esp-camera-rs' driver must be updated to the latest version.
+- Fixed the bug that captured images are broken when the camera is in the DeepSleep mode. v0.3.1 is the stable version.
+- Capturing clock is changed to 5MHz or 25MHz. The default is 5MHz when one image captured. When the movie is captured, the clock is changed to 25MHz.
+- Changed the number of the frame buffer is 2. v0.3.0 set the number of the frame buffer to 3. But the eMMC writing speed is not enough to write the image to the eMMC. Since the eMMC writing speed is improved, the number of the frame buffer is changed to 2.
+- Changed allocate_unit_size to 4096 for the eMMC writing speed at the v0.3.1.
+- Fixed the bug that captured images are deleted when the camera is in the DeepSleep mode. v0.3.1 is fixed the bug.
 
 Update v0.2.0
 - Updated the UI for the configuration screen.
