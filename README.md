@@ -118,6 +118,12 @@ cargo install ldproxy
 cargo install espup
 cargo install cargo-espflash
 ```
+2024-08-12, cargo-espflash can not be compiled.
+If you have an error, use the following command.
+```bash
+cargo install cargo-binstall
+cargo binstall cargo-espflash 
+```
 
 ### 4. ESP Environment Setup
 Run the following command to install and update the Espressif Rust ecosystem:
