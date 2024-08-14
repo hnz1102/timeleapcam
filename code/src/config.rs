@@ -36,7 +36,27 @@ pub struct Config {
     #[default("")]
     storage_access_token: &'static str,
     #[default("")]
+    storage_signed_key: &'static str,
+    #[default("")]
     post_message_trigger: &'static str,
+    #[default("true")]
+    autofocus_once: &'static str,
+    #[default("false")]
+    status_report: &'static str,
+    #[default("600")]
+    status_report_interval: &'static str,
+    #[default("3600")]
+    post_interval: &'static str,
+    #[default("-1")]
+    leap_day: &'static str,
+    #[default("-1")]
+    leap_hour: &'static str,
+    #[default("-1")]
+    leap_minute: &'static str,
+    #[default("0")]
+    capture_frames_at_once: &'static str,
+    #[default("false")]
+    overwrite_saved: &'static str,
 }
 
 const MENU_SSID: (&str, &str) = ("SSID", "ssid");
@@ -55,7 +75,17 @@ const MENU_POSTACCOUNT: (&str, &str) = ("POSTACCOUNT", "postaccount");
 const MENU_POSTACCESSTOKEN: (&str, &str) = ("POSTACCESSTOKEN", "postaccesstoken");
 const MENU_STORAGEACCOUNT: (&str, &str) = ("STORAGEACCOUNT", "storageaccount");
 const MENU_STORAGEACCESSTOKEN: (&str, &str) = ("STORAGEACCESSTOKEN", "storageaccesstoken");
+const MENU_STORAGESIGNEDKEY: (&str, &str) = ("STORAGESIGNEDKEY", "storagesignedkey");
 const MENU_POSTMESSAGETRIGGER: (&str, &str) = ("POSTMESSAGETRIGGER", "postmessagetrigger");
+const MENU_AUTOFOCUSONCE: (&str, &str) = ("AUTOFOCUSONCE", "autofocusonce");
+const MENU_STATUSREPORT: (&str, &str) = ("STATUSREPORT", "statusreport");
+const MENU_STATUSREPORTINTERVAL: (&str, &str) = ("STATUSREPORTINTERVAL", "statusreportinterval");
+const MENU_POSTINTERVAL: (&str, &str) = ("POSTINTERVAL", "postinterval");
+const MENU_LEAPDAY: (&str, &str) = ("LEAPDAY", "leapday");
+const MENU_LEAPHOUR: (&str, &str) = ("LEAPHOUR", "leaphour");
+const MENU_LEAPMINUTE: (&str, &str) = ("LEAPMINUTE", "leapminute");
+const MENU_CAPTUREFRAMESATONCE: (&str, &str) = ("CAPTUREFRAMESATONCE", "captureframesatonce");
+const MENU_OVERWRITESAVED: (&str, &str) = ("OVERWRITESAVED", "overwritesaved");
 
 #[derive(Debug)]
 pub struct ConfigData {
@@ -75,7 +105,17 @@ pub struct ConfigData {
     pub post_access_token: String,
     pub storage_account: String,
     pub storage_access_token: String,
+    pub storage_signed_key: String,
     pub post_message_trigger: String,
+    pub autofocus_once: bool,
+    pub status_report: bool,
+    pub status_report_interval: u32,
+    pub post_interval: u32,
+    pub leap_day: i32,
+    pub leap_hour: i32,
+    pub leap_minute: i32,
+    pub capture_frames_at_once: i32,
+    pub overwrite_saved: bool,
 }
 
 impl ConfigData {
@@ -97,7 +137,17 @@ impl ConfigData {
             post_access_token: String::new(),
             storage_account: String::new(),
             storage_access_token: String::new(),
+            storage_signed_key: String::new(),
             post_message_trigger: String::new(),
+            autofocus_once: false,
+            status_report: false,
+            status_report_interval: 0,
+            post_interval: 0,
+            leap_day: -1,
+            leap_hour: -1,
+            leap_minute: -1,
+            capture_frames_at_once: 0,
+            overwrite_saved: false,
         }
     }
     pub fn load_config(&mut self, nvs_value: Option<&str>) -> anyhow::Result<()> {
@@ -124,7 +174,17 @@ impl ConfigData {
         self.post_access_token = settings_map.get(MENU_POSTACCESSTOKEN.1).ok_or(anyhow::Error::msg("post_access_token not found"))?.to_string();
         self.storage_account = settings_map.get(MENU_STORAGEACCOUNT.1).ok_or(anyhow::Error::msg("storage_account not found"))?.to_string();
         self.storage_access_token = settings_map.get(MENU_STORAGEACCESSTOKEN.1).ok_or(anyhow::Error::msg("storage_access_token not found"))?.to_string();
+        self.storage_signed_key = settings_map.get(MENU_STORAGESIGNEDKEY.1).ok_or(anyhow::Error::msg("storage_signed_key not found"))?.to_string();
         self.post_message_trigger = settings_map.get(MENU_POSTMESSAGETRIGGER.1).ok_or(anyhow::Error::msg("post_message_trigger not found"))?.to_string();
+        self.autofocus_once = settings_map.get(MENU_AUTOFOCUSONCE.1).ok_or(anyhow::Error::msg("autofocus_once not found"))?.parse::<bool>()?;
+        self.status_report = settings_map.get(MENU_STATUSREPORT.1).ok_or(anyhow::Error::msg("status_report not found"))?.parse::<bool>()?;
+        self.status_report_interval = settings_map.get(MENU_STATUSREPORTINTERVAL.1).ok_or(anyhow::Error::msg("status_report_interval not found"))?.parse::<u32>()?;
+        self.post_interval = settings_map.get(MENU_POSTINTERVAL.1).ok_or(anyhow::Error::msg("post_interval not found"))?.parse::<u32>()?;
+        self.leap_day = settings_map.get(MENU_LEAPDAY.1).ok_or(anyhow::Error::msg("leap_day not found"))?.parse::<i32>()?;
+        self.leap_hour = settings_map.get(MENU_LEAPHOUR.1).ok_or(anyhow::Error::msg("leap_hour not found"))?.parse::<i32>()?;
+        self.leap_minute = settings_map.get(MENU_LEAPMINUTE.1).ok_or(anyhow::Error::msg("leap_minute not found"))?.parse::<i32>()?;
+        self.capture_frames_at_once = settings_map.get(MENU_CAPTUREFRAMESATONCE.1).ok_or(anyhow::Error::msg("capture_frames_at_once not found"))?.parse::<i32>()?;
+        self.overwrite_saved = settings_map.get(MENU_OVERWRITESAVED.1).ok_or(anyhow::Error::msg("overwrite_saved not found"))?.parse::<bool>()?;
         Ok(())
     }
     
@@ -146,7 +206,17 @@ impl ConfigData {
         default_config.push((MENU_POSTACCESSTOKEN.0.to_string(), CONFIG.post_access_token.to_string()));
         default_config.push((MENU_STORAGEACCOUNT.0.to_string(), CONFIG.storage_account.to_string()));
         default_config.push((MENU_STORAGEACCESSTOKEN.0.to_string(), CONFIG.storage_access_token.to_string()));
+        default_config.push((MENU_STORAGESIGNEDKEY.0.to_string(), CONFIG.storage_signed_key.to_string()));
         default_config.push((MENU_POSTMESSAGETRIGGER.0.to_string(), CONFIG.post_message_trigger.to_string()));
+        default_config.push((MENU_AUTOFOCUSONCE.0.to_string(), CONFIG.autofocus_once.to_string()));
+        default_config.push((MENU_STATUSREPORT.0.to_string(), CONFIG.status_report.to_string()));
+        default_config.push((MENU_STATUSREPORTINTERVAL.0.to_string(), CONFIG.status_report_interval.to_string()));
+        default_config.push((MENU_POSTINTERVAL.0.to_string(), CONFIG.post_interval.to_string()));
+        default_config.push((MENU_LEAPDAY.0.to_string(), CONFIG.leap_day.to_string()));
+        default_config.push((MENU_LEAPHOUR.0.to_string(), CONFIG.leap_hour.to_string()));
+        default_config.push((MENU_LEAPMINUTE.0.to_string(), CONFIG.leap_minute.to_string()));
+        default_config.push((MENU_CAPTUREFRAMESATONCE.0.to_string(), CONFIG.capture_frames_at_once.to_string()));
+        default_config.push((MENU_OVERWRITESAVED.0.to_string(), CONFIG.overwrite_saved.to_string()));
         default_config
     }
 
@@ -169,7 +239,17 @@ impl ConfigData {
         all_config.push((MENU_POSTACCESSTOKEN.0.to_string(), self.post_access_token.to_string()));
         all_config.push((MENU_STORAGEACCOUNT.0.to_string(), self.storage_account.to_string()));
         all_config.push((MENU_STORAGEACCESSTOKEN.0.to_string(), self.storage_access_token.to_string()));
+        all_config.push((MENU_STORAGESIGNEDKEY.0.to_string(), self.storage_signed_key.to_string()));
         all_config.push((MENU_POSTMESSAGETRIGGER.0.to_string(), self.post_message_trigger.to_string()));
+        all_config.push((MENU_AUTOFOCUSONCE.0.to_string(), self.autofocus_once.to_string()));
+        all_config.push((MENU_STATUSREPORT.0.to_string(), self.status_report.to_string()));
+        all_config.push((MENU_STATUSREPORTINTERVAL.0.to_string(), self.status_report_interval.to_string()));
+        all_config.push((MENU_POSTINTERVAL.0.to_string(), self.post_interval.to_string()));
+        all_config.push((MENU_LEAPDAY.0.to_string(), self.leap_day.to_string()));
+        all_config.push((MENU_LEAPHOUR.0.to_string(), self.leap_hour.to_string()));
+        all_config.push((MENU_LEAPMINUTE.0.to_string(), self.leap_minute.to_string()));
+        all_config.push((MENU_CAPTUREFRAMESATONCE.0.to_string(), self.capture_frames_at_once.to_string()));
+        all_config.push((MENU_OVERWRITESAVED.0.to_string(), self.overwrite_saved.to_string()));
         all_config
     }    
 }

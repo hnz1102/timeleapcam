@@ -85,7 +85,7 @@ impl EMMCHost {
         let mount_config = esp_idf_sys::esp_vfs_fat_sdmmc_mount_config_t {
             format_if_mount_failed: true,
             max_files: 5,
-            allocation_unit_size: 512,
+            allocation_unit_size: 4096, // change from 512 to 4096. it needs to format the eMMC.
             disk_status_check_enable: false,
         };
 
@@ -102,6 +102,15 @@ impl EMMCHost {
             )
         };
 
+        let get_bus_width = unsafe {
+            (*self.host).get_bus_width.unwrap()(0)
+        };
+        let get_clock = unsafe {
+            let mut freq = 0;
+            (*self.host).get_real_freq.unwrap()(0, &mut freq);
+            freq
+        };
+        info!("Bus width: {} Freq: {} KHz", get_bus_width, get_clock);
         match mount_emmc {
             esp_idf_sys::ESP_OK => {
                 println!("eMMC mounted successfully");

@@ -15,8 +15,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use chrono::{DateTime, Utc};
 use chrono::{Local, Duration as ChronoDuration, FixedOffset, NaiveDate, Datelike, Timelike};
 
-//use esp_hal_procmacros::ram;
-
 mod wifi;
 mod capture;
 mod autofocus;
@@ -63,6 +61,18 @@ static mut CURRENT_TRACK_ID: u32 = 0;
 #[link_section = ".rtc.data"]
 static mut LAST_CAPTURE_TIME: u64 = 0;
 
+#[link_section = ".rtc.data"]
+static mut LAST_POSTED_TIME: u64 = 0;
+
+#[link_section = ".rtc.data"]
+static mut CAPTURE_START_TIME: u64 = 0;
+
+#[link_section = ".rtc.data"]
+static mut CAPTURE_END_TIME: u64 = 0;
+
+#[link_section = ".rtc.data"]
+static mut LAST_STATUS_POSTED_TIME: u64 = 0;
+
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
@@ -71,14 +81,15 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
 
     // eMMC and Camera Power On (low active)
-    let mut emmc_cam_power = PinDriver::output(peripherals.pins.gpio3).unwrap();
-    emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
+    // let mut emmc_cam_power = PinDriver::output(peripherals.pins.gpio44).unwrap();
     // emmc_cam_power.set_low().expect("Set emmc_cam_power low failure");
+    let mut led_ind = PinDriver::output(peripherals.pins.gpio21).unwrap();
+    led_ind.set_low().expect("Set indicator high failure");
 
     // TouchPad
     let mut touchpad = TouchPad::new();
     touchpad.start();
-    thread::sleep(Duration::from_millis(100));
+    thread::sleep(Duration::from_millis(1000));
 
     // operating mode
     let mut operating_mode = false;
@@ -113,9 +124,6 @@ fn main() -> anyhow::Result<()> {
     }
     // Initialize Configuration Data
     let mut config_data = ConfigData::new();
-
-    // XIAO ESP32S3 is always in operating mode
-    operating_mode = true;
 
     // Initialize NVS
     let nvs_default_partition = EspNvsPartition::<NvsDefault>::take().unwrap();
@@ -165,56 +173,62 @@ fn main() -> anyhow::Result<()> {
     info!("Auto Capture: {:?}", unsafe { DEEP_SLEEP_AUTO_CAPTURE } );
     info!("Image Count ID: {:?}", unsafe { IMAGE_COUNT_ID });
 
-    let mut current_resolution = camera::framesize_t_FRAMESIZE_VGA;
+    let mut current_resolution = camera::framesize_t_FRAMESIZE_QSXGA;
     if operating_mode {
         // operating mode
-        server_info.auto_capture = config_data.auto_capture;
-        server_info.capture_started = config_data.auto_capture;
         server_info.duration = config_data.duration;
         server_info.resolution = config_data.resolution;
         server_info.track_id = config_data.track_id;
-        server_info.timezone = config_data.timezone_offset;
-        server_info.idle_in_sleep_time = config_data.idle_in_sleep_time;
     }
     else {
         // wakeup
-        server_info.capture_started = config_data.auto_capture;
         server_info.duration = unsafe { DURATION_TIME };
         server_info.resolution = unsafe { CURRENT_RESOLUTION };
         server_info.track_id = unsafe { CURRENT_TRACK_ID };
-        server_info.timezone = config_data.timezone_offset;
-        server_info.idle_in_sleep_time = config_data.idle_in_sleep_time;
         current_resolution = server_info.resolution;
 
     }
+    server_info.auto_capture = config_data.auto_capture;
+    server_info.idle_in_sleep_time = config_data.idle_in_sleep_time;
+    server_info.timezone = config_data.timezone_offset;
+    server_info.autofocus_once = config_data.autofocus_once;
     server_info.last_capture_date_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_CAPTURE_TIME });
+    server_info.last_posted_date_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_POSTED_TIME });
+    server_info.capture_start_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { CAPTURE_START_TIME });
+    server_info.capture_end_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { CAPTURE_END_TIME });    
     server_info.query_prompt = config_data.query_prompt.clone();
     server_info.query_openai = config_data.query_openai;
     server_info.openai_model = config_data.model.clone();
-    // let mut current_resolution = server_info.resolution;
+    server_info.status_report = config_data.status_report;
+    server_info.status_report_interval = config_data.status_report_interval;
+    server_info.post_interval = config_data.post_interval;
+    server_info.capture_frames_at_once = config_data.capture_frames_at_once;
+    server_info.overwrite_saved = config_data.overwrite_saved;
+    let mut last_status_posted_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_STATUS_POSTED_TIME });
     let mut next_capture_time = UNIX_EPOCH + Duration::from_secs(unsafe { NEXT_CAPTURE_TIME });
-    let mut capture_count = unsafe { IMAGE_COUNT_ID };
+    let mut capture_id = unsafe { IMAGE_COUNT_ID };
     let mut current_track_id = server_info.track_id;
     let mut current_duration = server_info.duration;
-    let operating_mode_start_time = SystemTime::now();
     let dt_utc : DateTime<Utc> = DateTime::<Utc>::from(next_capture_time);
     let fixed_offset = FixedOffset::east_opt(config_data.timezone_offset * 3600).unwrap();
     let dt_local = DateTime::<Local>::from_naive_utc_and_offset(dt_utc.naive_utc(), fixed_offset);
-    info!("Next Capture Time: {}", dt_local.format("%Y-%m-%d %H:%M:%S"));
+    info!("Next Capture Time: {} Capture Count: {}", dt_local.format("%Y-%m-%d %H:%M:%S"), capture_id);
 
+    let status_post_need = server_info.status_report && (capture_id % server_info.status_report_interval) == 0;
     // current_settings into server_info
     server_info.leap_time = LeapTime {
-        year: dt_local.year() as u32,
-        month: dt_local.month(),
-        day: dt_local.day(),
-        hour: dt_local.hour(),
-        minute: dt_local.minute(),
-        second: dt_local.second(),
+        year: -1,
+        month: -1,
+        day: config_data.leap_day,
+        hour: config_data.leap_hour,
+        minute: config_data.leap_minute,
+        second: 0,
     };
 
     // wifi initialize
     let mut wifi_dev : Result<Box<EspWifi>, anyhow::Error> = Result::Err(anyhow::anyhow!("WiFi not connected"));
-    let mut server : Option<server::ControlServer> = match operating_mode || config_data.query_openai {
+    let mut server_enalbed = false;
+    let mut server : Option<server::ControlServer> = match operating_mode || config_data.query_openai || status_post_need {
         true => {
             wifi_dev = wifi::wifi_connect(peripherals.modem, &config_data.wifi_ssid, &config_data.wifi_psk);
             match &wifi_dev {
@@ -223,7 +237,9 @@ fn main() -> anyhow::Result<()> {
             }
             let rssi = wifi::get_rssi();
             info!("RSSI: {}dBm", rssi);
-        
+            // ssid
+            let ssid = config_data.wifi_ssid.clone();
+            info!("Connected SSID: {:?}", ssid);
             // Get my IP address
             let mut ip_addr : Ipv4Addr; 
             loop {
@@ -234,6 +250,7 @@ fn main() -> anyhow::Result<()> {
                 info!("Waiting for WiFi connection...");
                 thread::sleep(Duration::from_secs(1));
             }
+            info!("My IP address: {}", ip_addr);
             
             // NTP Server
             let sntp_conf = SntpConf {
@@ -271,7 +288,7 @@ fn main() -> anyhow::Result<()> {
                 }
             };
             server.start();
-            server.set_server_info(server_info.clone());
+            server_enalbed = true;
             Some(server)
         },
         false => {
@@ -280,9 +297,13 @@ fn main() -> anyhow::Result<()> {
     };
 
     // Initialize the camera
+    let xclk = match server_info.capture_frames_at_once == 0 && ! operating_mode {
+        true => 5000000,
+        false => 25000000,
+    };
     let cam = Camera::new(
-        peripherals.pins.gpio43,    // PWDN
-        peripherals.pins.gpio0,     // RESET
+        // peripherals.pins.gpio0,      // PWDN NO USE
+        // peripherals.pins.gpio0,      // RESET NO USE
         peripherals.pins.gpio10,    // XCLK
         peripherals.pins.gpio40,    // SIOD
         peripherals.pins.gpio39,    // SIOC
@@ -297,11 +318,11 @@ fn main() -> anyhow::Result<()> {
         peripherals.pins.gpio38,    // VSYNC
         peripherals.pins.gpio47,    // HREF
         peripherals.pins.gpio13,    // PCLK
-        20000000,                    // XCLK frequency
+        xclk,                   // XCLK frequency
         10,                         // JPEG quality
-        2,                         // Frame buffer count
+        2,                          // Frame buffer count (back to 2 for double buffering)
         camera::camera_grab_mode_t_CAMERA_GRAB_LATEST,        // grab mode
-        // camera::camera_grab_mode_t_CAMERA_GRAB_WHEN_EMPTY,    // grab mode
+        //camera::camera_grab_mode_t_CAMERA_GRAB_WHEN_EMPTY,    // grab mode
         current_resolution,        // frame size have to be maximum resolution
     );
     let camera_device : Camera = match cam {
@@ -320,18 +341,29 @@ fn main() -> anyhow::Result<()> {
     monitoring_thread.set_post_access_token(config_data.post_account.clone(),
         config_data.post_access_token.clone(), config_data.post_message_trigger.clone());
     monitoring_thread.set_storage_access_token(config_data.storage_account.clone(),
-        config_data.storage_access_token.clone());
+                                               config_data.storage_access_token.clone(),
+                                               config_data.storage_signed_key.clone());
+    monitoring_thread.set_last_posted_date_time(server_info.last_posted_date_time, server_info.post_interval);
     monitoring_thread.start();
     if operating_mode {
         unsafe { DEEP_SLEEP_AUTO_CAPTURE = false; }
         config_data.auto_capture = false;
+        server_info.last_access_time = SystemTime::now();
+        server.as_mut().unwrap().set_server_info(server_info.clone());
     }
 
+    led_ind.set_high().expect("Set indicator high failure");
+    let mut one_shot = false;
+    let mut movie_mode = false;
+    let mut capture_indicator_on = false;
     loop {
         // imagefiles::list_files(Path::new("/eMMC"));
         if config_data.auto_capture || unsafe { DEEP_SLEEP_AUTO_CAPTURE } {
             server_info.capture_started = true;
         }
+        // read battery voltage
+        // let battery_voltage : f32 =  adc.read(&mut adc_pin).unwrap() as f32 * 2.0 / 1000.0;
+        let battery_voltage : f32 = 0.0;
 
         if operating_mode {
             let rssi = wifi::get_rssi();
@@ -339,8 +371,6 @@ fn main() -> anyhow::Result<()> {
                 wifi_reconnect(&mut wifi_dev.as_mut().unwrap());
             }
             server.as_mut().unwrap().set_current_rssi(rssi);
-            // read battery voltage
-            // let battery_voltage : f32 =  adc.read(&mut adc_pin).unwrap() as f32 * 2.0 / 1000.0;
             // server.as_mut().unwrap().set_current_battery_voltage(battery_voltage);
             server_info = server.as_mut().unwrap().get_server_info().clone();
 
@@ -356,6 +386,15 @@ fn main() -> anyhow::Result<()> {
                 config_data.query_openai = server_info.query_openai;
                 config_data.query_prompt = server_info.query_prompt.clone();
                 config_data.model = server_info.openai_model.clone();
+                config_data.autofocus_once = server_info.autofocus_once;
+                config_data.status_report = server_info.status_report;
+                config_data.status_report_interval = server_info.status_report_interval;
+                config_data.post_interval = server_info.post_interval;
+                config_data.leap_day = server_info.leap_time.day;
+                config_data.leap_hour = server_info.leap_time.hour;
+                config_data.leap_minute = server_info.leap_time.minute;
+                config_data.capture_frames_at_once = server_info.capture_frames_at_once;
+                config_data.overwrite_saved = server_info.overwrite_saved;
                 let save_config = config_data.get_all_config();
                 let toml_cfg = convert_config_to_toml_string(&save_config);
                 match nvs.set_str("config", toml_cfg.as_str()) {
@@ -363,61 +402,121 @@ fn main() -> anyhow::Result<()> {
                     Err(ref e) => { info!("Set default config failed {:?}", e); }
                 }
                 server.as_mut().unwrap().set_server_info(server_info.clone());
-                thread::sleep(Duration::from_millis(1000));
-                unsafe {
-                    esp_idf_sys::esp_restart();
-                }
             }
+            one_shot = server.as_mut().unwrap().get_one_shot();
             current_duration = server_info.duration;
-            // server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
-            // if server_info.latest_access_time.elapsed().unwrap().as_secs() > config_data.idle_in_sleep_time as u64 {
-            //     if operating_mode_start_time.elapsed().unwrap().as_secs() > config_data.idle_in_sleep_time as u64 {
-            //         operating_mode = false;
-            //         // emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
-            //         deep_and_light_sleep_start(SleepMode::SleepModeDeep, 0);
-            //     }
-            // }    
+            server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+            if !server_info.capture_started {
+                // when idle, check last access time
+                if server_info.last_access_time.duration_since(UNIX_EPOCH).unwrap().as_millis() > 1700000000 {
+                    let last_access_time = server_info.last_access_time.elapsed().unwrap().as_secs();
+                    if last_access_time > config_data.idle_in_sleep_time as u64 {
+                        operating_mode = false;
+                        info!("Idle time {:?} over. Go to sleep", last_access_time);
+                        // emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
+                        deep_and_light_sleep_start(SleepMode::SleepModeDeep, 0);
+                    }
+                }
+            }    
         }
 
-        // let key_event = touchpad.get_key_event_and_clear();
-        // for key in key_event {
-        //     match key {
-        //         KeyEvent::CenterKeyUp => {
-        //             operating_mode = false;
-        //         },
-        //         _ => {
-        //         }
-        //     }
-        // }
+        let key_event = touchpad.get_key_event_and_clear();
+        for key in key_event {
+            match key {
+                KeyEvent::CenterKeyUp => {
+                    // millisecond
+                    let push_time = touchpad.get_button_press_time(Key::Center);
+                    if push_time > 3000 {
+                        info!("Long press center key {}", push_time);
+                        server_info.capture_started = true;
+                        server_info.capture_frames_at_once = -1;
+                        movie_mode = true;
+                        server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+                        server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
+
+                    }
+                    else {
+                        info!("Center key down");
+                        server_info.capture_started = false;
+                        server_info.capture_frames_at_once = 0;
+                        movie_mode = false;
+                        // indicator off
+                        led_ind.set_high().expect("Set indicator high failure");
+                        server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+                        server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
+                    }
+                    if server_info.duration == 0 && server_info.leap_time.day < 0
+                        && server_info.leap_time.hour < 0 && server_info.leap_time.minute < 0 {
+                        server_info.duration = 90;
+                    }                
+                },
+                _ => {
+                }
+            }
+        }
+        if operating_mode && one_shot {
+            server_info.capture_started = true;
+        }
     
         if server_info.resolution != current_resolution {
             info!("Resolution changed: {} -> {}", current_resolution, server_info.resolution);
             current_resolution = server_info.resolution;
             capture.change_resolution(current_resolution);
         }
+        capture.set_capturing_duration(server_info.capture_frames_at_once);
         if server_info.capture_started {
-            info!("Capture started");
+            if !capture_indicator_on {
+                // indicator on
+                led_ind.set_low().expect("Set indicator low failure");
+                capture_indicator_on = true;
+            }
+            else {
+                led_ind.set_high().expect("Set indicator high failure");
+                capture_indicator_on = false;
+            }
             if current_track_id != server_info.track_id {
                 info!("Track ID changed: {} -> {}", current_track_id, server_info.track_id); 
                 current_track_id = server_info.track_id;
-                capture_count = 0;
+                capture_id = 0;
             }
-            if capture_count == 0 {
-                // auto focus trigger
+            if server_info.autofocus_once {
+                if capture_id == 0 {
+                    capture.autofocus_request();
+                }
+            }
+            else {
                 capture.autofocus_request();
-                next_capture_time = SystemTime::now();
             }
-            info!("Capture Track ID: {} Count: {} Resolution: {}", current_track_id, capture_count, current_resolution);
-            capture.capture_request(current_track_id, capture_count);
+            if capture_id == 0 {
+                next_capture_time = SystemTime::now();
+                capture.set_overwrite_saved(server_info.overwrite_saved);
+            }
+            else {
+                capture.set_overwrite_saved(false);
+            }
+            if movie_mode && capture_id == 0 || !movie_mode {
+                // indicator on
+                led_ind.set_low().expect("Set indicator low failure");
+                info!("Capture Started Track ID: {} Count: {} Resolution: {}", current_track_id, capture_id, current_resolution);
+                capture.capture_request(current_track_id, capture_id);
+            }
+            if movie_mode {
+                capture_id += 1;
+                thread::sleep(Duration::from_millis(100));
+                continue;
+            }
             loop {
                 if capture.get_capture_status() {
                     info!("Capture done");
                     break;
                 }
-                thread::sleep(Duration::from_millis(10));
+                thread::sleep(Duration::from_millis(100));
             }
+            // get last capture id
+            capture_id = capture.get_capture_id();
             if server_info.query_openai {
-                monitoring_thread.set_query_start(config_data.query_prompt.clone(), current_track_id, capture_count);
+                info!("Query OpenAI: Track :{} frame No.:{}", current_track_id, capture_id);
+                monitoring_thread.set_query_start(server_info.query_prompt.clone(), current_track_id, capture_id);
                 loop {
                     if !monitoring_thread.get_query_status() {
                         let reply = monitoring_thread.get_query_reply();
@@ -426,16 +525,86 @@ fn main() -> anyhow::Result<()> {
                     }
                     thread::sleep(Duration::from_millis(10));
                 }
+                if monitoring_thread.get_posted_status() {
+                    server_info.last_posted_date_time = SystemTime::now();
+                    server.as_mut().unwrap().set_last_posted_date_time(server_info.last_posted_date_time);
+                    monitoring_thread.set_last_posted_date_time(server_info.last_posted_date_time, server_info.post_interval);
+                }
             }
             let capture_info = capture.get_capture_info();
             if capture_info.status {
-                info!("Write done {}: width:{} height:{} image_size:{}", capture_count, capture_info.width, capture_info.height, capture_info.size);
+                info!("Write Frame ID {}: width:{} height:{} image_size:{}", capture_id, capture_info.width, capture_info.height, capture_info.size);
+                if server_info.status_report && (last_status_posted_time.elapsed().unwrap().as_secs() > server_info.status_report_interval as u64) {
+                    // capture time
+                    let dt_utc : DateTime<Utc> = DateTime::<Utc>::from(SystemTime::now());
+                    let fixed_offset = FixedOffset::east_opt(server_info.timezone * 3600).unwrap();
+                    let dt_local = DateTime::<Local>::from_naive_utc_and_offset(dt_utc.naive_utc(), fixed_offset);
+                    let capture_time = dt_local.format("%Y-%m-%d %H:%M:%S").to_string();
+                    let message = format!("STATUS REPORT: {}:{} {} {}V {}dBm", 
+                        current_track_id, capture_id, capture_time,
+                         battery_voltage, wifi::get_rssi());
+                    monitoring_thread.post_message_request(message, current_track_id, capture_id);
+                    loop {
+                        if !monitoring_thread.get_post_message_status() {
+                            break;
+                        }
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    last_status_posted_time = SystemTime::now();
+                }    
                 server_info.last_capture_date_time = SystemTime::now();
-                capture_count += 1;
-                server_info.current_capture_id = capture_count;
+                if server_enalbed {
+                    server.as_mut().unwrap().set_last_capture_date_time(server_info.last_capture_date_time);
+                }
+                server_info.current_capture_id = capture_id;
+                // increment capture_id
+                capture_id += 1;
             }
 
-            next_capture_time = get_next_wake_time(server_info.leap_time, server_info.timezone, next_capture_time, server_info.duration);
+            // indicator off
+            led_ind.set_high().expect("Set indicator high failure");
+            capture_indicator_on = false;            
+            
+            if one_shot {
+                server_info.capture_started = false;
+                capture_id = 0;
+                server.as_mut().unwrap().set_one_shot_completed();
+                thread::sleep(Duration::from_millis(100));
+                continue;
+            }
+
+            next_capture_time = match get_next_wake_time(
+                    server_info.leap_time,
+                    server_info.timezone,
+                    next_capture_time,
+                    server_info.duration,
+                    server_info.capture_start_time,
+                    server_info.capture_end_time) {
+                Some(time) => time,
+                None => {
+                    info!("Capture end");
+                    server_info.capture_started = false;
+                    if server_enalbed {
+                        server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+                    }
+                    capture_id = 0;
+                    unsafe {
+                        IMAGE_COUNT_ID = capture_id;
+                        DEEP_SLEEP_AUTO_CAPTURE = server_info.capture_started;
+                        DURATION_TIME = current_duration;
+                        CURRENT_RESOLUTION = current_resolution;
+                        CURRENT_TRACK_ID = current_track_id;
+                        LAST_CAPTURE_TIME = server_info.last_capture_date_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        LAST_POSTED_TIME = server_info.last_posted_date_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        CAPTURE_START_TIME = server_info.capture_start_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        CAPTURE_END_TIME = server_info.capture_end_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        LAST_STATUS_POSTED_TIME = last_status_posted_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                    }
+                    // emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
+                    deep_and_light_sleep_start(SleepMode::SleepModeDeep, 0);
+                    SystemTime::now() // not reached
+                }
+            };
             // parse next_capture_time to string
             let dt_utc : DateTime<Utc> = DateTime::<Utc>::from(next_capture_time);
             let fixed_offset = FixedOffset::east_opt(server_info.timezone * 3600).unwrap();
@@ -458,13 +627,17 @@ fn main() -> anyhow::Result<()> {
                 }
                 _ => {
                     unsafe {
-                        IMAGE_COUNT_ID = capture_count;
+                        IMAGE_COUNT_ID = capture_id;
                         DEEP_SLEEP_AUTO_CAPTURE = true;
                         NEXT_CAPTURE_TIME = next_capture_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                         DURATION_TIME = current_duration;
                         CURRENT_RESOLUTION = current_resolution;
                         CURRENT_TRACK_ID = current_track_id;
                         LAST_CAPTURE_TIME = server_info.last_capture_date_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        LAST_POSTED_TIME = server_info.last_posted_date_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        CAPTURE_START_TIME = server_info.capture_start_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        CAPTURE_END_TIME = server_info.capture_end_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
+                        LAST_STATUS_POSTED_TIME = last_status_posted_time.duration_since(UNIX_EPOCH).unwrap().as_secs() as u64;
                     }
                     // emmc_cam_power.set_high().expect("Set emmc_cam_power high failure");
                     deep_and_light_sleep_start(SleepMode::SleepModeDeep, sleep_time.as_secs());
@@ -472,8 +645,8 @@ fn main() -> anyhow::Result<()> {
             }
         }
         else {
-            if capture_count > 0 {
-                capture_count = 0;
+            if capture_id > 0 {
+                capture_id = 0;
             }
             thread::sleep(Duration::from_millis(100));
         }
@@ -481,10 +654,25 @@ fn main() -> anyhow::Result<()> {
 }
 
 // duration: > 0: Capture every duration seconds, = 0: Capture at specific time by LeapTime
-fn get_next_wake_time(lt: LeapTime, timezone: i32, mut next_capture_time: SystemTime, duration: u32) -> SystemTime {
+fn get_next_wake_time(lt: LeapTime, timezone: i32, mut next_capture_time: SystemTime, duration: u32,
+    capture_start_time: SystemTime, capture_end_time: SystemTime ) -> Option<SystemTime> {
+    let now = SystemTime::now();
+    let start_time_utc_str = DateTime::<Utc>::from(capture_start_time).format("%Y-%m-%d %H:%M:%S").to_string();
+    let end_time_utc_str = DateTime::<Utc>::from(capture_end_time).format("%Y-%m-%d %H:%M:%S").to_string();
+    let now_utc_str = DateTime::<Utc>::from(now).format("%Y-%m-%d %H:%M:%S").to_string();
+    info!("Start {} - {} Now: {}", start_time_utc_str, end_time_utc_str, now_utc_str);    
     if duration > 0 {
         next_capture_time = next_capture_time + Duration::from_secs(duration as u64);
-        return next_capture_time;
+        if capture_start_time < capture_end_time {
+            if next_capture_time < capture_start_time {
+                next_capture_time = capture_start_time;
+            }
+            else if next_capture_time > capture_end_time {
+                // stop capture
+                return None;
+            }
+        }
+        return Some(next_capture_time);
     }
     else {
         let offset = FixedOffset::east_opt(timezone * 60 * 60).unwrap();
@@ -492,35 +680,104 @@ fn get_next_wake_time(lt: LeapTime, timezone: i32, mut next_capture_time: System
         // parse now_with_offset to string
         let now_str = now_with_offset.format("%Y-%m-%d %H:%M:%S").to_string();
         info!("Now with offset: {}", now_str);
+        // parse now_str to year, day, month, hour, minute, second
+        let now_year = now_with_offset.year();
+        let now_month = now_with_offset.month();
+        let now_day = now_with_offset.day();
+        let now_hour = now_with_offset.hour();
         let now_naive = now_with_offset.naive_local();
-        if lt.year != 2024 && lt.month != 1 && lt.day != 1 {
-            // LeapTime is in the future, get duration from now to LeapTime. leap_time is local time.
-            let leap_time = NaiveDate::from_ymd_opt(lt.year as i32, lt.month, lt.day).unwrap()
-            .and_hms_opt(lt.hour, lt.minute, lt.second).unwrap().and_local_timezone(offset).unwrap();
+        let mut lt_hour = lt.hour;
+        let mut lt_minute = lt.minute;
+        let lt_day = lt.day;
+        if lt_day > 0 {
+            // LeapTime is specific day
+            if lt_hour < 0 { lt_hour = 0; }
+            if lt_minute < 0 { lt_minute = 0; }
+            let leap_time = NaiveDate::from_ymd_opt(now_year, now_month, lt_day as u32).unwrap()
+                .and_hms_opt(lt_hour as u32, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
             if now_naive < leap_time.naive_local() {
                 // convert leap_time to UTC as DateTime
                 next_capture_time = leap_time.into();
             }
+            else {
+                // LeapTime is interval time, get duration from now to LeapTime
+                let mut next_yaer = now_year;
+                let mut next_month = now_month;
+                if now_month == 12 {
+                    next_yaer += 1;
+                    next_month = 1;
+                }
+                else {
+                    next_month += 1;
+                }
+                let today_leap_time = NaiveDate::from_ymd_opt(now_year, now_month, lt_day as u32)
+                    .unwrap().and_hms_opt(lt_hour as u32, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                if now_naive < today_leap_time.naive_local() {
+                    // today
+                    next_capture_time = today_leap_time.into();
+                }
+                else {
+                    // next month
+                    let next_month_leap_time = NaiveDate::from_ymd_opt(next_yaer, next_month, lt_day as u32)
+                        .unwrap().and_hms_opt(lt_hour as u32, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                    next_capture_time = next_month_leap_time.into();
+                }
+            }
         }
         else {
-            // LeapTime is interval time, get duration from now to LeapTime
-            let today = now_naive.date();
-            let tomorrow = today + ChronoDuration::days(1);
-            let today_leap_time = NaiveDate::from_ymd_opt(today.year(), today.month(), today.day())
-                .unwrap().and_hms_opt(lt.hour, lt.minute, lt.second).unwrap().and_local_timezone(offset).unwrap();
-            if now_naive < today_leap_time.naive_local() {
-                // today
-                next_capture_time = today_leap_time.into();
+            if lt.hour >= 0 {
+                // LeapTime is specific time
+                if lt_minute < 0 { lt_minute = 0; }
+                let leap_time = NaiveDate::from_ymd_opt(now_year, now_month, now_day)
+                    .unwrap().and_hms_opt(lt_hour as u32, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                if now_naive < leap_time.naive_local() {
+                    // convert leap_time to UTC as DateTime
+                    next_capture_time = leap_time.into();
+                }
+                else {
+                    // LeapTime is interval time, get duration from now to LeapTime
+                    let tomorrow = now_naive.date() + ChronoDuration::days(1);
+                    let tomorrow_leap_time = NaiveDate::from_ymd_opt(tomorrow.year(), tomorrow.month(), tomorrow.day())
+                        .unwrap().and_hms_opt(lt_hour as u32, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                    next_capture_time = tomorrow_leap_time.into();
+                }
             }
             else {
-                // tomorrow
-                let tomorrow_leap_time = NaiveDate::from_ymd_opt(tomorrow.year(), tomorrow.month(), tomorrow.day())
-                    .unwrap().and_hms_opt(lt.hour, lt.minute, lt.second).unwrap().and_local_timezone(offset).unwrap();
-                next_capture_time = tomorrow_leap_time.into();
+                if lt.minute > 0 {
+                    // LeapTime is specific time 
+                    let leap_time = NaiveDate::from_ymd_opt(now_year, now_month, now_day)
+                        .unwrap().and_hms_opt(now_hour, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                    if now_naive < leap_time.naive_local() {
+                        // convert leap_time to UTC as DateTime
+                        next_capture_time = leap_time.into();
+                    }
+                    else {
+                        // LeapTime is interval time, get duration from now to LeapTime
+                        if now_hour == 23 {
+                            let tomorrow = now_naive.date() + ChronoDuration::days(1);
+                            let tomorrow_leap_time = NaiveDate::from_ymd_opt(tomorrow.year(), tomorrow.month(), tomorrow.day())
+                                .unwrap().and_hms_opt(0, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                            next_capture_time = tomorrow_leap_time.into();
+                        }
+                        else {
+                            let next_hour = now_hour + 1;
+                            let next_leap_time = NaiveDate::from_ymd_opt(now_year, now_month, now_day)
+                                .unwrap().and_hms_opt(next_hour, lt_minute as u32, 0).unwrap().and_local_timezone(offset).unwrap();
+                            next_capture_time = next_leap_time.into();
+                        }
+                    }
+                }
             }
         }
+        if next_capture_time < capture_start_time {
+            next_capture_time = capture_start_time;
+        }
+        else if next_capture_time > capture_end_time && capture_end_time > now.into() {
+            // stop capture
+            return None;
+        }
+        return Some(next_capture_time);
     }
-    next_capture_time
 }
 
 fn deep_and_light_sleep_start(sleep_mode: SleepMode, wakeup_interval: u64) {

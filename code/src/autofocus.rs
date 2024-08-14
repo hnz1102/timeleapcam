@@ -34,12 +34,12 @@ const ALL_MASK : u8 = 0xFF;
 
 pub struct AutoFocus<'a> {
     sensor: &'a CameraSensor<'a>,
-	supported: bool,
+	enable: bool,
 }
 
 impl<'a> AutoFocus<'a> {
     pub fn new(sensor: &'a CameraSensor) -> Self {
-        Self { sensor: sensor, supported: false }
+        Self { sensor: sensor, enable: false }
     }
 
     pub fn init(&mut self) {
@@ -50,8 +50,7 @@ impl<'a> AutoFocus<'a> {
 			info!("Autofocus not supported");
 			return;
 		}
-		self.supported = true;
-
+		self.enable = true;
         self.sensor.set_reg(OV5640_RESET, ALL_MASK, 0x20).expect("Failed to reset the camera");
         for i in 0..AUTOFOCUS_CONFIG.len() {
             match self.sensor.set_reg((0x8000 + i) as u16, ALL_MASK, AUTOFOCUS_CONFIG[i]){
@@ -82,7 +81,7 @@ impl<'a> AutoFocus<'a> {
 
 	// if sensor resolution is changed, this function should be called
     pub fn autofocus_zoneconfig(&self) {
-		if !self.supported {
+		if !self.enable {
 			return;
 		}
         let _ = self.sensor.set_reg(OV5640_CMD_ACK, ALL_MASK, 0x01);
@@ -108,7 +107,7 @@ impl<'a> AutoFocus<'a> {
 
 	// autofocus trigger
 	pub fn autofocus(&self) {
-		if !self.supported {
+		if !self.enable {
 			return;
 		}
 		info!("AutoFocus Triggered");
@@ -131,7 +130,7 @@ impl<'a> AutoFocus<'a> {
 	}
 
 	pub fn get_focus_result(&self) -> u8 {
-		if !self.supported {
+		if !self.enable {
 			return 0xFF;
 		}
 		let _ = self.sensor.set_reg(OV5640_CMD_ACK, ALL_MASK, 0x01);
@@ -163,7 +162,7 @@ impl<'a> AutoFocus<'a> {
 
 	#[allow(dead_code)]
 	pub fn release_focus(&self) {
-		if !self.supported {
+		if !self.enable {
 			return;
 		}
 		let _ = self.sensor.set_reg(OV5640_CMD_ACK, ALL_MASK, 0x01);
@@ -180,7 +179,7 @@ impl<'a> AutoFocus<'a> {
 
 	#[allow(dead_code)]
     pub fn get_focus_status(&self) -> u8 {
-		if !self.supported {
+		if !self.enable {
 			return 0xFF;
 		}
         self.sensor.get_reg(OV5640_CMD_FW_STATUS, ALL_MASK)
