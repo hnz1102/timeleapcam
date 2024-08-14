@@ -1,52 +1,26 @@
 <div align="center">
-  <h1><code>Time Leap Cam</code></h1>
+  <h1><code>Time Leap Cam on XIAO ESP32S3 Sense</code></h1>
   <p>
-    <img src="doc/timeleapcam.jpg"/>
+    <img src="doc/xiaos3.jpg"/>
   </p>
 </div>
 
 # Time Leap Cam - Super Long Term Time-Lapse Camera and Monitoring by OpenAI
 
 ## Overview
-The TIME LEAP CAM is an autofocus camera designed for long-duration time-lapse photography. Named for its ability to "leap" through time, this camera is ideal for monitoring over extended periods. It operates on battery power and features a DeepSleep mode to conserve energy when not actively shooting. Images are stored on a 64GB eMMC within one of eleven designated folders.
+The TIME LEAP CAM is a camera designed for long-duration time-lapse photography. Named for its ability to "leap" through time, this camera is ideal for monitoring over extended periods. It operates on battery power and features a DeepSleep mode to conserve energy when not actively shooting. Images are stored on a uSD Card within one of eleven designated folders.
+It is based on the XIAO ESP32S3 Sense module and uses the OV2640 camera sensor. The camera supports resolutions up to UXGA (1600x1200) and can capture images at intervals ranging from seconds to hours.
 
-## Features
-- **Autofocus Capability**: Ensures clear images over long shooting intervals.
-- **Energy Efficiency**: Utilizes DeepSleep mode for minimal power consumption (less than 440uA, 1.5mW).
-- **Wireless Charging**: Supports Qi wireless charging and automatically stops charging when full.
-- **Water Resistance**: Suitable for outdoor use with splash resistance.
-- **Advanced Notifications**: Uses OpenAI's GPT-4o for image recognition and sends notifications via LINE when specific conditions are met.
-- **Natural Language Configuration**: Set notification conditions in multiple languages through a simple interface.
-- **Touch-Activated Web Server**: Access settings via a browser with automatic return to sleep mode after 5 minutes of inactivity.
-- **Time Synchronization**: Uses NTP for automatic time adjustment when connected to WiFi, with RTC to maintain time offline.
+Actually, This software is same with main branch. following is the limitation.
+- The resolution is limited to 1600x1200 when you use XIAO ESP32S3 Sense module. If you can use OV5640 camera module, you can use 2592x1944 resolution.
+- The camera is not autofocus when you use XIAO ESP32S3 Sense module. If you can use OV5640 camera module, you can use autofocus function.
+- Memory storage is limited to 32GB SD card.
+- XIAO ESP32S3 Sense module has not Qi wireless charging capability.
+- XIAP ESP32S3 Sense module has not XTAL for RTC. So, the time is not accurate without WiFi connection.
 
-## Specification
-- **Resolution**: Up to 2592x1944 (QSXGA)
-- **Sensor**: OV5640 5M pixel sensor
-- **SoC Module**: ESP32-S3-WROOM-1-N16R8 (160MHz, 512KB SRAM, 16MB Flash, 8MB PSRAM)
-- **Battery**: 3.7V LiPo 1100mAh
-- **Storage**: 64GB eMMC
-- **Connectivity**: WiFi 2.4GHz
-- **Charging**: Qi wireless charging compatible
-- **Dimensions**: 78(W) x 79(H) x 68(D) mm Box
+## Warning
+The XIAO ESP32S3 Sense module is getting hot when the camera is working. Please be careful to handle the camera.
 
-## Usage
-To use the TIME LEAP CAM, place it on a Qi wireless charger to charge power. Configure the camera settings such as shooting interval, time, and resolution through a web browser connected via WiFi. The camera can be activated from sleep mode by touching the screw on the back, which launches the web server for configuration.
-
-## Options
-- **Folder Selection**: Choose from 11 different folders for storing images.
-- **Image Resolution**: Selectable up to QSXGA (2592x1944).
-- **Notification Conditions**: Set via natural language input on the configuration screen.
-
-## Notes
-- **Water Immersion**: The camera is not designed to withstand full submersion in water.
-- **API Keys Required**: To use the image recognition and notification features, obtain API keys from OpenAI, CloudFlare Images, and LINE Messaging API.
-- **Internet Connection**: Required for using advanced features like image recognition and notifications. Time-lapse functionality is available without WiFi.
-
-For API keys and more information, visit:
-- OpenAI API: [https://openai.com/index/openai-api/](https://openai.com/index/openai-api/)
-- CloudFlare Images: [https://developers.cloudflare.com/images/about](https://developers.cloudflare.com/images/about)
-- LINE Messaging API: [https://developers.line.biz/en/docs/messaging-api/](https://developers.line.biz/en/docs/messaging-api/)
 # How to build from code and Install to the unit.
 
 Using Ubuntu 22.04.3 LTS and ESP-IDF V5.2.1
@@ -86,6 +60,12 @@ cargo install ldproxy
 cargo install espup
 cargo install cargo-espflash
 ```
+2024-08-12, cargo-espflash can not be compiled.
+If you have an error, use the following command.
+```bash
+cargo install cargo-binstall
+cargo binstall cargo-espflash 
+```
 
 ### 4. ESP Environment Setup
 Run the following command to install and update the Espressif Rust ecosystem:
@@ -107,9 +87,9 @@ sudo udevadm trigger
 ```
 
 ### 6. Clone Repository
-Clone the TimeLeapCam repository:
+Clone the TimeLeapCam repository with the XIAO-ESP32S3_SENSE branch:
 ```bash
-git clone https://github.com/hnz1102/timeleapcam.git
+git clone https://github.com/hnz1102/timeleapcam.git -b XIAO-ESP32S3_SENSE
 cd timeleapcam/code/
 ```
 
@@ -131,12 +111,22 @@ duration = "0"
 api_key = "<API KEY for openAI>" # Set your OpenAI API Key
 model = "gpt-4o"
 query_openai = "false"
-query_prompt = "If is there somebody, Add in the reply as 'NOTICE' and reason. If is nobody, Just reply is 'NONE'."
+query_prompt = "If heavy rain is expected in 30 minutes, please include a 'NOTICE' with the reason in your reply. If not, simply respond with 'NONE'. Heavy rain is defined as 30mm/h or more."
 post_account = "<Your LINE Account ID>" # Set your LINE Account ID
 post_access_token = "<Access Token for LINE Message>" # Set your LINE Access Token
 storage_account = "<Your Cloudflare Account ID>" # Set your Cloudflare Account ID
-storage_access_token = "Your Cloudflare Access Token>" # Set your Cloudflare Access Token
+storage_access_token = "<Your Cloudflare Access Token>" # Set your Cloudflare Access Token
+storage_signed_key = "<Your Cloudflare Image Signed Key>" # Set your Cloudflare Image Signed Key
 post_message_trigger = "NOTICE"
+autofocus_once = "true"
+status_report = "false"
+status_report_interval = "3600"
+post_interval = "3600"
+leap_day = "-1"
+leap_hour = "-1"
+leap_minute = "-1"
+capture_frames_at_once = "0"
+overwrite_saved = "false"
 ```
 
 ### 8. Build and Flash
@@ -145,22 +135,11 @@ Build the project and flash it to your device:
 cargo build --release
 cargo espflash flash --release --monitor
 ```
-At the first boot, the device will format the eMMC and create the necessary folders. This process may take a few minutes.
-
-## Schematic, PCB Gabar and Container 3D Data
-
-There is a Schematic data in the hardware directory including 3D printing data. 
-
-![board](doc/board.jpg)
-
-![Container](doc/container.jpg)
-
-## Troubleshooting
-- **Permission Issues**: Ensure udev rules are set correctly and you have the necessary permissions to access the device.
-- **Build Errors**: Check that all dependencies are installed correctly. If errors persist, try cleaning the project with `cargo clean` and rebuild.
+At the first boot, You should push 'boot' button and 'Reset' button when you connect the USB. ESP32S3 Sense module will download mode. After that, you can flash the firmware.
+uSD card should be inserted before you boot the device. At the first boot, the device will format the SD Card and create the necessary folders. This process may take a few minutes.
 
 ## LICENSE
-This source code is licensed under MIT. Other Hardware Schematic documents are licensed under CC-BY-SA V4.0.
+This source code is licensed under MIT. See LICENSE for more information.
 
 This project uses the following libraries and resources:
   
