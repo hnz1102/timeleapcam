@@ -89,7 +89,7 @@ sudo udevadm trigger
 ### 6. Clone Repository
 Clone the TimeLeapCam repository with the XIAO-ESP32S3_SENSE branch:
 ```bash
-git clone https://github.com/hnz1102/timeleapcam.git -b XIAO-ESP32S3_SENSE
+git clone https://github.com/hnz1102/timeleapcam.git -b XIAO_ESP32S3_SENSE
 cd timeleapcam/code/
 ```
 
