@@ -75,6 +75,7 @@ pub struct ControlServerInfo {
     pub capture_end_time: SystemTime,
     pub capture_frames_at_once: i32,
     pub overwrite_saved: bool,
+    pub temperature: f32,
 }
 
 impl ControlServerInfo {
@@ -116,6 +117,7 @@ impl ControlServerInfo {
             capture_end_time: now,
             capture_frames_at_once: 0,
             overwrite_saved: false,
+            temperature: 0.0,
         }
     }    
 }
@@ -588,7 +590,6 @@ impl ControlServer {
             let headers = [
                 ("Content-Type", "multipart/x-mixed-replace; boundary=--timeleapcamboundary"),
             ];
-            let mut count = fromframe;
             let server_info_clone = server_info_get_image.clone();
             let file_path = format!("/eMMC/T{}/capture.dat", trackid().unwrap());
             let mut r_image = match ImageFiles::new(Path::new(&file_path), OpenMode::Read) {
@@ -600,6 +601,12 @@ impl ControlServer {
                     return Ok::<(), EspIOError>(());
                 }
             };
+            let mut count = match fromframe {
+                // last image
+                -1 => (r_image.get_nof_images()  - 1) as i32,
+                _ => fromframe,
+            };
+            info!("Count: {}", count);
             match r_image.seek_image(count as u32){
                 Ok(_) => (),
                 Err(e) => {
@@ -887,7 +894,7 @@ impl ControlServer {
             let last_posted_date_time_utc: DateTime<Local> = server_info.last_posted_date_time.into();
             let last_posted_date_time = DateTime::<Local>::from_naive_utc_and_offset(last_posted_date_time_utc.naive_utc(), fixed_offset);
             let lpdt_str = last_posted_date_time.format("%Y-%m-%d %H:%M:%S").to_string();
-            let state_json = format!("{{\"state\": \"{}\", \"rssi\": {}, \"battery_voltage\": {:.2}, \"capture_id\": {}, \"last_capture_date_time\": \"{}\", \"last_posted_date_time\": \"{}\", \"capture_frames_at_once\": {}, \"overwrite_saved\": {}}}",
+            let state_json = format!("{{\"state\": \"{}\", \"rssi\": {}, \"battery_voltage\": {:.2}, \"capture_id\": {}, \"last_capture_date_time\": \"{}\", \"last_posted_date_time\": \"{}\", \"capture_frames_at_once\": {}, \"overwrite_saved\": {}, \"temperature\": {:.2}}}",
                                         if server_info.capture_started {
                                             "start"
                                         } else {
@@ -900,6 +907,7 @@ impl ControlServer {
                                         if server_info.last_posted_date_time == SystemTime::UNIX_EPOCH { "N/A" } else { &lpdt_str },
                                         server_info.capture_frames_at_once,
                                         server_info.overwrite_saved,
+                                        server_info.temperature,
                                     );
             response?.write_all(state_json.as_bytes())?;
             Ok::<(), EspIOError>(())
@@ -1150,6 +1158,7 @@ impl ControlServer {
         server_info.rssi = rssi;
     }
 
+    #[allow(dead_code)]
     pub fn set_current_battery_voltage(&self, battery_voltage: f32) {
         let mut server_info = self.server_info.lock().unwrap();
         server_info.battery_voltage = battery_voltage;
@@ -1183,6 +1192,11 @@ impl ControlServer {
     pub fn set_capture_frames_at_once(&self, capture_frames_at_once: i32) {
         let mut server_info = self.server_info.lock().unwrap();
         server_info.capture_frames_at_once = capture_frames_at_once;
+    }
+
+    pub fn set_temperature(&self, temperature: f32) {
+        let mut server_info = self.server_info.lock().unwrap();
+        server_info.temperature = temperature;
     }
 }
 
@@ -1826,7 +1840,7 @@ function drawPreview() {{
     img.onload = function() {{
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     }};
-    img.src = "/data?trackid=" + trackid + "&fromframe=0&toframe=0&random_number=" + random_number;
+    img.src = "/data?trackid=" + trackid + "&fromframe=-1&toframe=-1&random_number=" + random_number;
 }}
 
 var check_completed = null;
@@ -1953,6 +1967,12 @@ fn status_html() -> String {
 <div class="left">
 <label for="lastpostedDateTime">Posted Time:</label></div>
 <div class="left"><span id="lastpostedDateTime"><span></div>
+</div>
+
+<div class="clear">
+<div class="left">
+<label for="temperature">Temp.</label></div>
+<div class="left"><span id="temperature"><span>C</div>
 </div></div>
 
 <script>
@@ -1971,6 +1991,7 @@ function get_state () {{
             document.getElementById("captureID").innerHTML = status.capture_id;
             document.getElementById("lastCaptureDateTime").innerHTML = status.last_capture_date_time;
             document.getElementById("lastpostedDateTime").innerHTML = status.last_posted_date_time;
+            document.getElementById("temperature").innerHTML = status.temperature;
         }}
         else if (this.readyState == 4 && this.status == 0) {{
             document.getElementById("camState").innerHTML = "Not Connected";

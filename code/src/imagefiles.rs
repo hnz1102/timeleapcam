@@ -246,7 +246,7 @@ impl ImageFiles {
     pub fn read_image(&mut self) -> Result<Vec<u8>, anyhow::Error> {
         let size = self.get_image_size();
         if size == 0 {
-            return Err(anyhow::Error::msg("Failed to get image size"));
+            return Err(anyhow::Error::msg("Failed to get image size at Read"));
         }
         let mut buffer = vec![0; size];
         let _ = self.file.seek(std::io::SeekFrom::Start(self.read_pos + IMAGE_HEADER_SIZE as u64));
@@ -265,7 +265,7 @@ impl ImageFiles {
         for _ in 0..from_frame {
             let size = self.get_image_size();
             if size == 0 {
-                return Err(anyhow::Error::msg("Failed to get image size"));
+                return Err(anyhow::Error::msg("Failed to get image size at Seek"));
             }
             self.read_pos += (size + IMAGE_HEADER_SIZE) as u64;
         }

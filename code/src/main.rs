@@ -2,7 +2,7 @@ use anyhow;
 use std::{thread, time::Duration};
 use esp_camera_rs::Camera;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::gpio::{PinDriver, Gpio2};
+// use esp_idf_hal::gpio::PinDriver;
 use esp_idf_svc::wifi::EspWifi;
 use esp_idf_sys::camera;
 use log::info;
@@ -10,7 +10,7 @@ use std::net::Ipv4Addr;
 
 use esp_idf_svc::nvs::{EspNvsPartition, NvsDefault, EspNvs, NvsPartitionId};
 use esp_idf_svc::sntp::{EspSntp, SyncStatus, SntpConf, OperatingMode, SyncMode};
-use esp_idf_hal::adc::{config::Config as AdcConfig, AdcChannelDriver, AdcDriver};
+// use esp_idf_hal::adc::{config::Config as AdcConfig, AdcChannelDriver, AdcDriver};
 use std::time::{SystemTime, UNIX_EPOCH};
 use chrono::{DateTime, Utc};
 use chrono::{Local, Duration as ChronoDuration, FixedOffset, NaiveDate, Datelike, Timelike};
@@ -83,8 +83,11 @@ fn main() -> anyhow::Result<()> {
     // eMMC and Camera Power On (low active)
     // let mut emmc_cam_power = PinDriver::output(peripherals.pins.gpio44).unwrap();
     // emmc_cam_power.set_low().expect("Set emmc_cam_power low failure");
-    let mut led_ind = PinDriver::output(peripherals.pins.gpio21).unwrap();
-    led_ind.set_low().expect("Set indicator high failure");
+    // let mut led_ind = PinDriver::output(peripherals.pins.gpio21).unwrap();
+    // led_ind.set_high().expect("Set indicator high failure");
+    // SD card CS
+    // let mut sd_cs = PinDriver::output(peripherals.pins.gpio3).unwrap();
+    // sd_cs.set_low().expect("Set SD card CS high failure");
 
     // TouchPad
     let mut touchpad = TouchPad::new();
@@ -156,6 +159,15 @@ fn main() -> anyhow::Result<()> {
         }    
     }
 
+    // Initialize Temperature Sensor
+    let mut config = esp_idf_svc::hal::sys::temperature_sensor_config_t::default();
+    let mut temp_sensor_ptr : *mut esp_idf_svc::sys::temperature_sensor_obj_t =
+             std::ptr::null_mut() as *mut esp_idf_svc::sys::temperature_sensor_obj_t;
+    unsafe {
+        esp_idf_svc::hal::sys::temperature_sensor_install(&mut config, &mut temp_sensor_ptr);
+        esp_idf_svc::hal::sys::temperature_sensor_enable(&mut *temp_sensor_ptr);
+    }
+
     // Initialize ADC
     // let mut adc = AdcDriver::new(peripherals.adc1, &AdcConfig::new().calibration(true))?;
     // let mut adc_pin : AdcChannelDriver<'_, {esp_idf_sys::adc_atten_t_ADC_ATTEN_DB_11}, Gpio2> = AdcChannelDriver::new(peripherals.pins.gpio2)?;
@@ -163,8 +175,25 @@ fn main() -> anyhow::Result<()> {
     // info!("Battery Voltage: {:.2}V", battery_voltage);
     // emmc initialize
     let mut emmc = EMMCHost::new();
-    emmc.mount(); 
-    // emmc.format();
+    let mut mount_retry = 0;
+    thread::sleep(Duration::from_millis(100));
+    loop {
+        match emmc.mount() {
+            Ok(_) => { info!("eMMC mounted");
+                break;
+            },
+            Err(e) => {
+                // format eMMC
+                emmc.format();
+                info!("eMMC mount failed {:?}", e);
+                mount_retry += 1;
+                if mount_retry > 3 {
+                    info!("eMMC mount failed.");
+                    break;
+                }
+            }
+        }
+    }
     // imagefiles::delete_all_files(Path::new("/eMMC"));
 
     let mut server_info = server::ControlServerInfo::new();
@@ -352,7 +381,7 @@ fn main() -> anyhow::Result<()> {
         server.as_mut().unwrap().set_server_info(server_info.clone());
     }
 
-    led_ind.set_high().expect("Set indicator high failure");
+    // led_ind.set_high().expect("Set indicator high failure");
     let mut one_shot = false;
     let mut movie_mode = false;
     let mut capture_indicator_on = false;
@@ -441,7 +470,7 @@ fn main() -> anyhow::Result<()> {
                         server_info.capture_frames_at_once = 0;
                         movie_mode = false;
                         // indicator off
-                        led_ind.set_high().expect("Set indicator high failure");
+                        // led_ind.set_high().expect("Set indicator high failure");
                         server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
                         server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
                     }
@@ -456,6 +485,8 @@ fn main() -> anyhow::Result<()> {
         }
         if operating_mode && one_shot {
             server_info.capture_started = true;
+            server.as_mut().unwrap().set_capture_frames_at_once(0);
+            capture.set_overwrite_saved(false);
         }
     
         if server_info.resolution != current_resolution {
@@ -464,14 +495,21 @@ fn main() -> anyhow::Result<()> {
             capture.change_resolution(current_resolution);
         }
         capture.set_capturing_duration(server_info.capture_frames_at_once);
+        let mut tempval : f32 = 0.0;
+        unsafe {
+            esp_idf_svc::hal::sys::temperature_sensor_get_celsius(&mut *temp_sensor_ptr, &mut tempval);
+            server.as_mut().unwrap().set_temperature(tempval);
+        }
+
         if server_info.capture_started {
+            log::info!("System Temperature: {:.2}°C", tempval);    
             if !capture_indicator_on {
                 // indicator on
-                led_ind.set_low().expect("Set indicator low failure");
+                // led_ind.set_low().expect("Set indicator low failure");
                 capture_indicator_on = true;
             }
             else {
-                led_ind.set_high().expect("Set indicator high failure");
+                // led_ind.set_high().expect("Set indicator high failure");
                 capture_indicator_on = false;
             }
             if current_track_id != server_info.track_id {
@@ -496,7 +534,7 @@ fn main() -> anyhow::Result<()> {
             }
             if movie_mode && capture_id == 0 || !movie_mode {
                 // indicator on
-                led_ind.set_low().expect("Set indicator low failure");
+                // led_ind.set_low().expect("Set indicator low failure");
                 info!("Capture Started Track ID: {} Count: {} Resolution: {}", current_track_id, capture_id, current_resolution);
                 capture.capture_request(current_track_id, capture_id);
             }
@@ -562,7 +600,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             // indicator off
-            led_ind.set_high().expect("Set indicator high failure");
+            // led_ind.set_high().expect("Set indicator high failure");
             capture_indicator_on = false;            
             
             if one_shot {

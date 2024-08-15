@@ -3,6 +3,7 @@ use std::ffi::c_void;
 use esp_idf_sys::sdmmc_slot_config_t;
 use esp_idf_sys::sdmmc_card_t;
 use esp_idf_sys::sdmmc_host_t;
+use anyhow::Result;
 
 const SDMMC_SLOT_CONFIG_WIDTH : u8 = 1;
 const SDMMC_SLOT_CONFIG_CLK : i32 = 7;
@@ -18,9 +19,9 @@ const SDMMC_SLOT_CONFIG_D7 : i32 = -1;
 // const SDMMC_HOST_FLAG_8BIT: u32 = 1 << 2;
 //const SDMMC_HOST_FLAG_4BIT: u32 = 1 << 1;
 const SDMMC_HOST_FLAG_1BIT: u32 = 1 << 0;
-// const SDMMC_FREQ_52M: i32 = 52000;
+const SDMMC_FREQ_52M: i32 = 52000;
 // const SDMMC_FREQ_30M: i32 = 30000;
-const SDMMC_FREQ_10M: i32 = 10000;
+// const SDMMC_FREQ_26M: i32 = 26000;
 // const SDMMC_FREQ_2M: i32 = 2000;
 
 const MOUNT_POINT : &[u8] = b"/eMMC\0";
@@ -37,7 +38,7 @@ impl EMMCHost {
             host : Box::into_raw(Box::new(esp_idf_sys::sdmmc_host_t {
                 flags: SDMMC_HOST_FLAG_1BIT,
                 slot: 0,
-                max_freq_khz: SDMMC_FREQ_10M,
+                max_freq_khz: SDMMC_FREQ_52M,
                 io_voltage: 3.3,
                 init: Some(esp_idf_sys::sdmmc_host_init),
                 set_bus_width: Some(esp_idf_sys::sdmmc_host_set_bus_width),
@@ -80,12 +81,12 @@ impl EMMCHost {
         }
     }
 
-    pub fn mount(&mut self) {
+    pub fn mount(&mut self) -> Result<(), anyhow::Error> {
         let slot_config_ptr = &self.slot_config as *const sdmmc_slot_config_t;
         let mount_config = esp_idf_sys::esp_vfs_fat_sdmmc_mount_config_t {
             format_if_mount_failed: true,
             max_files: 5,
-            allocation_unit_size: 4096, // change from 512 to 4096. it needs to format the eMMC.
+            allocation_unit_size: 8192,
             disk_status_check_enable: false,
         };
 
@@ -102,21 +103,13 @@ impl EMMCHost {
             )
         };
 
-        let get_bus_width = unsafe {
-            (*self.host).get_bus_width.unwrap()(0)
-        };
-        let get_clock = unsafe {
-            let mut freq = 0;
-            (*self.host).get_real_freq.unwrap()(0, &mut freq);
-            freq
-        };
-        info!("Bus width: {} Freq: {} KHz", get_bus_width, get_clock);
         match mount_emmc {
             esp_idf_sys::ESP_OK => {
                 println!("eMMC mounted successfully");
+                Ok(())
             }
             _ => {
-                info!("Failed to mount eMMC");
+                Err(anyhow::anyhow!("Failed to mount eMMC"))
             }
         }   
     }
