@@ -14,6 +14,10 @@ The TIME LEAP CAM is an autofocus camera designed for long-duration time-lapse p
 - 2024-08-12, If you want use on the XIAO ESP32S3 Sense module, please refer to the [XIAO_ESP32S3_SENSE branch](https://github.com/hnz1102/timeleapcam/tree/XIAO_ESP32S3_SENSE).
 ![XIAO_ESP32S3_SENSE](doc/xiaos3s.jpg)
 
+Update v0.3.2
+- Add the 'System Temperature' to the status report. The temperature is measured by the internal temperature sensor of ESP32S3.
+- Fixed the bug that when one-shot capture, the preview image is not displayed on the web.
+
 Update v0.3.1
 - Added the movie shooting function. The movie is created by combining the images taken at the specified cycle. 
  Capture Frames At Once (sec): The number of frames to capture at once. The default is 0, which means that the image is captured one by one. If you set it to 1, the image is captured during the 1 sec. If you set image resolution to VGA, the image is captured by 27 fps. HD is 15 - 27 fps. Full HD is 6 fps.

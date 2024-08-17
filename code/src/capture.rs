@@ -62,7 +62,7 @@ impl Capture {
             info!("Capturing Frame Thread Start...");
             let camera = camera.lock().unwrap();
             let sensor = camera.sensor();
-            let autofocus = AutoFocus::new(&sensor);
+            let mut autofocus = AutoFocus::new(&sensor);
             autofocus.init();
             let _ = sensor.set_quality(10);
             let _ = sensor.set_hmirror(true);
@@ -197,8 +197,10 @@ impl Capture {
                         loop_count, write_images, capture_duration,
                         loop_count as u64 * 1000000 / capture_duration as u64,
                         write_data_size / 1024);
-                    info!("Average Capture Time:{}us", average_capture_time as u64 / loop_count as u64);
-                    info!("Average Write Time:{}us", average_write_time as u64 / loop_count as u64);
+                    if loop_count > 0 {
+                        info!("Average Capture Time:{}us", average_capture_time as u64 / loop_count as u64);
+                        info!("Average Write Time:{}us", average_write_time as u64 / loop_count as u64);
+                    }
                     let mut infolk = info.lock().unwrap();
                     infolk.capture_id = if write_images > 0 { write_images - 1 } else { 0 };
                     infolk.size = size;

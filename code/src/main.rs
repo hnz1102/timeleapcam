@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_imports)]
+
 use anyhow;
 use std::{thread, time::Duration};
 use esp_camera_rs::Camera;
@@ -154,6 +156,15 @@ fn main() -> anyhow::Result<()> {
         }    
     }
 
+    // Initialize Temperature Sensor
+    let mut config = esp_idf_svc::hal::sys::temperature_sensor_config_t::default();
+    let mut temp_sensor_ptr : *mut esp_idf_svc::sys::temperature_sensor_obj_t =
+             std::ptr::null_mut() as *mut esp_idf_svc::sys::temperature_sensor_obj_t;
+    unsafe {
+        esp_idf_svc::hal::sys::temperature_sensor_install(&mut config, &mut temp_sensor_ptr);
+        esp_idf_svc::hal::sys::temperature_sensor_enable(&mut *temp_sensor_ptr);
+    }
+
     // Initialize ADC
     let mut adc = AdcDriver::new(peripherals.adc1, &AdcConfig::new().calibration(true))?;
     let mut adc_pin : AdcChannelDriver<'_, {esp_idf_sys::adc_atten_t_ADC_ATTEN_DB_11}, Gpio2> = AdcChannelDriver::new(peripherals.pins.gpio2)?;
@@ -161,8 +172,25 @@ fn main() -> anyhow::Result<()> {
     info!("Battery Voltage: {:.2}V", battery_voltage);
     // emmc initialize
     let mut emmc = EMMCHost::new();
-    emmc.mount(); 
-    // emmc.format();
+    let mut mount_retry = 0;
+    loop {
+        match emmc.mount() {
+            Ok(_) => { info!("eMMC/SDCard mounted");
+                break;
+            },
+            Err(e) => {
+                // format eMMC
+                emmc.format();
+                info!("eMMC/SDCard mount failed {:?}", e);
+                mount_retry += 1;
+                if mount_retry > 3 {
+                    info!("eMMC/SDCard mount failed.");
+                    break;
+                }
+            }
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
     // imagefiles::delete_all_files(Path::new("/eMMC"));
 
     let mut server_info = server::ControlServerInfo::new();
@@ -348,8 +376,10 @@ fn main() -> anyhow::Result<()> {
         server.as_mut().unwrap().set_server_info(server_info.clone());
     }
 
+    // led_ind.set_high().expect("Set indicator high failure");
     let mut one_shot = false;
     let mut movie_mode = false;
+    let mut capture_indicator_on = false;
     loop {
         // imagefiles::list_files(Path::new("/eMMC"));
         if config_data.auto_capture || unsafe { DEEP_SLEEP_AUTO_CAPTURE } {
@@ -433,6 +463,8 @@ fn main() -> anyhow::Result<()> {
                         server_info.capture_started = false;
                         server_info.capture_frames_at_once = 0;
                         movie_mode = false;
+                        // indicator off
+                        // led_ind.set_high().expect("Set indicator high failure");
                         server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
                         server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
                     }
@@ -447,6 +479,8 @@ fn main() -> anyhow::Result<()> {
         }
         if operating_mode && one_shot {
             server_info.capture_started = true;
+            server.as_mut().unwrap().set_capture_frames_at_once(0);
+            capture.set_overwrite_saved(false);
         }
     
         if server_info.resolution != current_resolution {
@@ -455,9 +489,23 @@ fn main() -> anyhow::Result<()> {
             capture.change_resolution(current_resolution);
         }
         capture.set_capturing_duration(server_info.capture_frames_at_once);
-        if server_info.capture_started {
-            info!("Capture started");
+        let mut tempval : f32 = 0.0;
+        unsafe {
+            esp_idf_svc::hal::sys::temperature_sensor_get_celsius(&mut *temp_sensor_ptr, &mut tempval);
+            server.as_mut().unwrap().set_temperature(tempval);
+        }
 
+        if server_info.capture_started {
+            log::info!("System Temperature: {:.2}°C", tempval);    
+            if !capture_indicator_on {
+                // indicator on
+                // led_ind.set_low().expect("Set indicator low failure");
+                capture_indicator_on = true;
+            }
+            else {
+                // led_ind.set_high().expect("Set indicator high failure");
+                capture_indicator_on = false;
+            }
             if current_track_id != server_info.track_id {
                 info!("Track ID changed: {} -> {}", current_track_id, server_info.track_id); 
                 current_track_id = server_info.track_id;
@@ -479,6 +527,8 @@ fn main() -> anyhow::Result<()> {
                 capture.set_overwrite_saved(false);
             }
             if movie_mode && capture_id == 0 || !movie_mode {
+                // indicator on
+                // led_ind.set_low().expect("Set indicator low failure");
                 info!("Capture Started Track ID: {} Count: {} Resolution: {}", current_track_id, capture_id, current_resolution);
                 capture.capture_request(current_track_id, capture_id);
             }
@@ -543,6 +593,10 @@ fn main() -> anyhow::Result<()> {
                 capture_id += 1;
             }
 
+            // indicator off
+            // led_ind.set_high().expect("Set indicator high failure");
+            capture_indicator_on = false;            
+            
             if one_shot {
                 server_info.capture_started = false;
                 capture_id = 0;
