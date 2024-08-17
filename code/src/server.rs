@@ -1948,7 +1948,7 @@ fn status_html() -> String {
 <div class="clear">
 <div class="left">
 <label for="wifiRSSI">WiFi RSSI:</label></div>
-<div class="left"><span id="wifiRSSI"><span>dBm</div>
+<div class="left"><span id="wifiRSSI"><span></div>
 </div>
 
 <div class="clear">
@@ -1972,7 +1972,7 @@ fn status_html() -> String {
 <div class="clear">
 <div class="left">
 <label for="temperature">Temp.</label></div>
-<div class="left"><span id="temperature"><span>C</div>
+<div class="left"><span id="temperature"><span></div>
 </div></div>
 
 <script>
@@ -1991,7 +1991,7 @@ function get_state () {{
             document.getElementById("captureID").innerHTML = status.capture_id;
             document.getElementById("lastCaptureDateTime").innerHTML = status.last_capture_date_time;
             document.getElementById("lastpostedDateTime").innerHTML = status.last_posted_date_time;
-            document.getElementById("temperature").innerHTML = status.temperature;
+            document.getElementById("temperature").innerHTML = status.temperature+"C";
         }}
         else if (this.readyState == 4 && this.status == 0) {{
             document.getElementById("camState").innerHTML = "Not Connected";

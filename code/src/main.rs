@@ -1,8 +1,10 @@
+#![allow(dead_code, unused_imports)]
+
 use anyhow;
 use std::{thread, time::Duration};
 use esp_camera_rs::Camera;
 use esp_idf_hal::peripherals::Peripherals;
-// use esp_idf_hal::gpio::PinDriver;
+use esp_idf_hal::gpio::PinDriver;
 use esp_idf_svc::wifi::EspWifi;
 use esp_idf_sys::camera;
 use log::info;
@@ -28,7 +30,7 @@ mod monitoring;
 use touchpad::{TouchPad, KeyEvent, Key};
 use config::ConfigData;
 use capture::Capture;
-use emmc::EMMCHost;
+use emmc::{EMMCHost, SDSPIHost};
 use server::LeapTime;
 use monitoring::Monitoring;
 
@@ -84,7 +86,7 @@ fn main() -> anyhow::Result<()> {
     // let mut emmc_cam_power = PinDriver::output(peripherals.pins.gpio44).unwrap();
     // emmc_cam_power.set_low().expect("Set emmc_cam_power low failure");
     // let mut led_ind = PinDriver::output(peripherals.pins.gpio21).unwrap();
-    // led_ind.set_high().expect("Set indicator high failure");
+    // led_ind.set_low().expect("Set indicator high failure");
     // SD card CS
     // let mut sd_cs = PinDriver::output(peripherals.pins.gpio3).unwrap();
     // sd_cs.set_low().expect("Set SD card CS high failure");
@@ -174,21 +176,22 @@ fn main() -> anyhow::Result<()> {
     // let battery_voltage : f32 =  adc.read(&mut adc_pin).unwrap() as f32 * 2.0 / 1000.0;
     // info!("Battery Voltage: {:.2}V", battery_voltage);
     // emmc initialize
-    let mut emmc = EMMCHost::new();
+    // let mut emmc = EMMCHost::new();
+    let mut emmc = SDSPIHost::new();
     let mut mount_retry = 0;
     thread::sleep(Duration::from_millis(100));
     loop {
         match emmc.mount() {
-            Ok(_) => { info!("eMMC mounted");
+            Ok(_) => { info!("eMMC/SDCard mounted");
                 break;
             },
             Err(e) => {
                 // format eMMC
                 emmc.format();
-                info!("eMMC mount failed {:?}", e);
+                info!("eMMC/SDCard mount failed {:?}", e);
                 mount_retry += 1;
                 if mount_retry > 3 {
-                    info!("eMMC mount failed.");
+                    info!("eMMC/SDCard mount failed.");
                     break;
                 }
             }
