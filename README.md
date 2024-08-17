@@ -11,12 +11,16 @@
 The TIME LEAP CAM is a camera designed for long-duration time-lapse photography. Named for its ability to "leap" through time, this camera is ideal for monitoring over extended periods. It operates on battery power and features a DeepSleep mode to conserve energy when not actively shooting. Images are stored on a uSD Card within one of eleven designated folders.
 It is based on the XIAO ESP32S3 Sense module and uses the OV2640 camera sensor. The camera supports resolutions up to UXGA (1600x1200) and can capture images at intervals ranging from seconds to hours.
 
-Actually, This software is same with [main](https://github.com/hnz1102/timeleapcam/tree/main) branch. following is the limitation.
+Actually, This software is very similar to the [main](https://github.com/hnz1102/timeleapcam/tree/main) branch. The following are the limitations.
 - The resolution is limited to 1600x1200 when you use XIAO ESP32S3 Sense module. If you can use OV5640 camera module, you can use 2592x1944 resolution.
 - The camera is not autofocus when you use XIAO ESP32S3 Sense module. If you can use OV5640 camera module, you can use autofocus function.
 - Memory storage is limited to 32GB SD card.
 - XIAO ESP32S3 Sense module has not Qi wireless charging capability.
 - XIAP ESP32S3 Sense module has not XTAL for RTC. So, the time is not accurate without WiFi connection.
+
+### v0.3.0 - 2024-08-17
+- Change the SD Card Host Controller to SDSPI from SDMMC. When camera is writing the imege to the SD Card, User LED is blinking. When the LED is off, you can remove the SD Card.
+- Add the 'System Temperature' to the status report. The temperature is measured by the internal temperature sensor of ESP32S3.
 
 ## Warning
 The XIAO ESP32S3 Sense module is getting hot when the camera is working. Please be careful to handle the camera.
