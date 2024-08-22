@@ -40,7 +40,8 @@ const SDSPI_SLOT_CONFIG_CMD: i32 = 9;   // GPIO9 MOSI
 const SDSPI_SLOT_CONFIG_CLK: i32 = 7;   // GPIO7 SCLK
 const SDSPI_SLOT_CONFIG_D0: i32 = 8;    // GPIO8 MISO
 const SDSPI_SLOT_CONFIG_CS: i32 = 21;   // GPIO21 CS
-const VFS_MOUNT_ALLOC_UNIT_SIZE: usize = 16 * 1024;
+
+const VFS_MOUNT_ALLOC_UNIT_SIZE: usize = 32 * 1024;
 
 const MOUNT_POINT : &[u8] = b"/eMMC\0";
 

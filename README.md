@@ -14,6 +14,12 @@ The TIME LEAP CAM is an autofocus camera designed for long-duration time-lapse p
 - 2024-08-12, If you want use on the XIAO ESP32S3 Sense module, please refer to the [XIAO_ESP32S3_SENSE branch](https://github.com/hnz1102/timeleapcam/tree/XIAO_ESP32S3_SENSE).
 ![XIAO_ESP32S3_SENSE](doc/xiaos3s.jpg)
 
+Update v0.3.3
+- Improved the eMMC writing speed. The eMMC writing speed is improved by background writing. In the HD resolution, the writing speed is improved 28fps to 30fps. In the Full HD resolution, the writing speed is improved 6fps to 8fps. 
+- JPEG quality can be set from 4 to 40. The default is 12. This value is high quality to set the value to 4. In the HD resolution, JPEG quality is set to less than 12, the writing speed is slower than 30fps. If you want to capture the image at 30fps, set the JPEG quality to 12 or more.
+- If you want to direct write the image to the eMMC, set the 'Direct Write Mode' to checked. The image is directly written to the eMMC without the frame buffer. The writing speed is decreased. The default is unchecked.
+- Changed the Allocate Unit Size to 32KB for the eMMC writing speed at the v0.3.3.
+
 Update v0.3.2
 - Add the 'System Temperature' to the status report. The temperature is measured by the internal temperature sensor of ESP32S3.
 - Fixed the bug that when one-shot capture, the preview image is not displayed on the web.

@@ -7,7 +7,7 @@ use std::path::Path;
 use std::time::SystemTime;
 
 use crate::autofocus::AutoFocus;
-use crate::imagefiles::{ ImageFiles, OpenMode, delete_file };
+use crate::imagefiles::{ ImageFiles, OpenMode, delete_file, WriteThread };
 
 #[derive(Debug, Clone)]
 pub struct CaptureInfo {
@@ -25,6 +25,8 @@ pub struct CaptureInfo {
     pub size: usize,
     capturing_duration: i32, 
     open_mode: OpenMode,
+    direct_write_mode: bool,
+    jpeg_quality: u32,
 }
 
 pub struct Capture {
@@ -51,6 +53,8 @@ impl Capture {
                 size: 0,
                 capturing_duration: 0,
                 open_mode: OpenMode::Append,
+                direct_write_mode: false,
+                jpeg_quality: 12,
              })),
         }
     }
@@ -64,7 +68,6 @@ impl Capture {
             let sensor = camera.sensor();
             let mut autofocus = AutoFocus::new(&sensor);
             autofocus.init();
-            let _ = sensor.set_quality(10);
             let _ = sensor.set_hmirror(true);
             autofocus.autofocus_zoneconfig(); 
             // autofocus.autofocus();
@@ -98,6 +101,9 @@ impl Capture {
                     camera.return_all_framebuffers();
                     thread::sleep(Duration::from_millis(1000));
                     let mut infolk = info.lock().unwrap();
+                    let jpeg_quality = infolk.jpeg_quality as i32;
+                    let _ = sensor.set_quality(jpeg_quality);
+                    info!("JPEG Quality: {}", jpeg_quality);        
                     if infolk.wait_focus {
                         autofocus.autofocus();
                         let _autofocus_result = autofocus.get_focus_result();
@@ -107,22 +113,13 @@ impl Capture {
                     let filename = format!("{}/T{}/capture.dat", infolk.capture_dir, infolk.track_id);
                     let mode = match infolk.open_mode {
                         OpenMode::Append => OpenMode::Append,
-                        OpenMode::Write => {
-                            delete_file(Path::new(&filename));
-                            OpenMode::Write
-                        },
+                        OpenMode::Write =>  OpenMode::Write,
                         _ => OpenMode::Append,
                     };
-                    let mut imgfile = match ImageFiles::new(&filename, mode) {
-                        Ok(file) => file,
-                        Err(e) => {
-                            info!("Failed to create file: {:?}", e);
-                            drop(infolk);
-                            thread::sleep(Duration::from_millis(100));
-                            continue;
-                        }
-                    };
+                    let direct_write_mode = infolk.direct_write_mode;
                     drop(infolk);
+                    let mut write_thread = WriteThread::new(filename, mode, direct_write_mode);
+                    write_thread.start();
                     let mut average_capture_time = 0;
                     let mut average_write_time = 0;
                     let mut write_data_size = 0;
@@ -144,16 +141,9 @@ impl Capture {
                                 width = frame.width();
                                 height = frame.height();
                                 let start_write = SystemTime::now();
-                                match imgfile.write_image(buffer) {
-                                    Ok(_) => {
-                                        // info!("File written successfully");
-                                        success_count += 1;
-                                    }
-                                    Err(e) => {
-                                        info!("Failed to write file: {:?}", e);
-                                        break;
-                                    }
-                                }
+                                // write_thread.push_data(buffer.to_vec());
+                                write_thread.push_data(&buffer);
+                                success_count += 1;
                                 let end_write = start_write.elapsed().unwrap().as_micros();
                                 average_write_time += end_write;
                                 loop_count += 1;
@@ -162,7 +152,7 @@ impl Capture {
                                 if infolk_loop.capturing_duration > 0 {
                                     let elapsed = start_capture_time.elapsed().unwrap().as_secs();
                                     if elapsed >= infolk_loop.capturing_duration as u64 {
-                                        let _ = imgfile.write_image_end();
+                                        write_thread.stop();
                                         break;
                                     }
                                 }
@@ -172,7 +162,7 @@ impl Capture {
                                 }
                                 else {
                                     // only one frame
-                                    let _ = imgfile.write_image_end();
+                                    write_thread.stop();
                                     break;
                                 }
                             }
@@ -189,17 +179,16 @@ impl Capture {
                                 write_data_size as f32 / capture_duration as f32);
                         }
                     }
-                    imgfile.flush();
-                    let write_images = imgfile.get_nof_images();
-                    drop(imgfile);
+                    write_thread.wait_thread();
+                    let write_images = write_thread.get_nof_images();
                     let capture_duration = start_capture_time.elapsed().unwrap().as_micros();
-                    info!("Capture Frames: {} Total Frames: {} Duration:{}us {}fps {}KB", 
-                        loop_count, write_images, capture_duration,
+                    info!("Capture Frames: {} Total Frames: {} {}fps {}KB", 
+                        loop_count, write_images,
                         loop_count as u64 * 1000000 / capture_duration as u64,
                         write_data_size / 1024);
                     if loop_count > 0 {
-                        info!("Average Capture Time:{}us", average_capture_time as u64 / loop_count as u64);
-                        info!("Average Write Time:{}us", average_write_time as u64 / loop_count as u64);
+                        info!("Average Capture Time: {:.2}ms", average_capture_time as f32 / loop_count as f32 / 1000.0);
+                        info!("Average Write Time: {:.2}ms", average_write_time as f32 / loop_count as f32 / 1000.0);
                     }
                     let mut infolk = info.lock().unwrap();
                     infolk.capture_id = if write_images > 0 { write_images - 1 } else { 0 };
@@ -285,5 +274,15 @@ impl Capture {
     pub fn get_capture_id(&self) -> u32 {
         let info = self.info.lock().unwrap();
         info.capture_id
+    }
+
+    pub fn set_direct_write_mode(&self, mode: bool) {
+        let mut info = self.info.lock().unwrap();
+        info.direct_write_mode = mode;
+    }
+
+    pub fn set_jpeg_quality(&self, quality: u32) {
+        let mut info = self.info.lock().unwrap();
+        info.jpeg_quality = quality;
     }
 }
