@@ -57,6 +57,10 @@ pub struct Config {
     capture_frames_at_once: &'static str,
     #[default("false")]
     overwrite_saved: &'static str,
+    #[default("false")]
+    direct_write_mode: &'static str,
+    #[default("12")]
+    jpeg_quality: &'static str,
 }
 
 const MENU_SSID: (&str, &str) = ("SSID", "ssid");
@@ -86,6 +90,8 @@ const MENU_LEAPHOUR: (&str, &str) = ("LEAPHOUR", "leaphour");
 const MENU_LEAPMINUTE: (&str, &str) = ("LEAPMINUTE", "leapminute");
 const MENU_CAPTUREFRAMESATONCE: (&str, &str) = ("CAPTUREFRAMESATONCE", "captureframesatonce");
 const MENU_OVERWRITESAVED: (&str, &str) = ("OVERWRITESAVED", "overwritesaved");
+const MENU_DIRECTWRITEMODE: (&str, &str) = ("DIRECTWRITEMODE", "directwritemode");
+const MENU_JPEGQUALITY: (&str, &str) = ("JPEGQUALITY", "jpegquality");
 
 #[derive(Debug)]
 pub struct ConfigData {
@@ -116,6 +122,8 @@ pub struct ConfigData {
     pub leap_minute: i32,
     pub capture_frames_at_once: i32,
     pub overwrite_saved: bool,
+    pub direct_write_mode: bool,
+    pub jpeg_quality: u32,
 }
 
 impl ConfigData {
@@ -148,6 +156,8 @@ impl ConfigData {
             leap_minute: -1,
             capture_frames_at_once: 0,
             overwrite_saved: false,
+            direct_write_mode: false,
+            jpeg_quality: 12,
         }
     }
     pub fn load_config(&mut self, nvs_value: Option<&str>) -> anyhow::Result<()> {
@@ -185,6 +195,8 @@ impl ConfigData {
         self.leap_minute = settings_map.get(MENU_LEAPMINUTE.1).ok_or(anyhow::Error::msg("leap_minute not found"))?.parse::<i32>()?;
         self.capture_frames_at_once = settings_map.get(MENU_CAPTUREFRAMESATONCE.1).ok_or(anyhow::Error::msg("capture_frames_at_once not found"))?.parse::<i32>()?;
         self.overwrite_saved = settings_map.get(MENU_OVERWRITESAVED.1).ok_or(anyhow::Error::msg("overwrite_saved not found"))?.parse::<bool>()?;
+        self.direct_write_mode = settings_map.get(MENU_DIRECTWRITEMODE.1).ok_or(anyhow::Error::msg("direct_write_mode not found"))?.parse::<bool>()?;
+        self.jpeg_quality = settings_map.get(MENU_JPEGQUALITY.1).ok_or(anyhow::Error::msg("jpeg_quality not found"))?.parse::<u32>()?;
         Ok(())
     }
     
@@ -217,6 +229,8 @@ impl ConfigData {
         default_config.push((MENU_LEAPMINUTE.0.to_string(), CONFIG.leap_minute.to_string()));
         default_config.push((MENU_CAPTUREFRAMESATONCE.0.to_string(), CONFIG.capture_frames_at_once.to_string()));
         default_config.push((MENU_OVERWRITESAVED.0.to_string(), CONFIG.overwrite_saved.to_string()));
+        default_config.push((MENU_DIRECTWRITEMODE.0.to_string(), CONFIG.direct_write_mode.to_string()));
+        default_config.push((MENU_JPEGQUALITY.0.to_string(), CONFIG.jpeg_quality.to_string()));
         default_config
     }
 
@@ -250,6 +264,8 @@ impl ConfigData {
         all_config.push((MENU_LEAPMINUTE.0.to_string(), self.leap_minute.to_string()));
         all_config.push((MENU_CAPTUREFRAMESATONCE.0.to_string(), self.capture_frames_at_once.to_string()));
         all_config.push((MENU_OVERWRITESAVED.0.to_string(), self.overwrite_saved.to_string()));
+        all_config.push((MENU_DIRECTWRITEMODE.0.to_string(), self.direct_write_mode.to_string()));
+        all_config.push((MENU_JPEGQUALITY.0.to_string(), self.jpeg_quality.to_string()));
         all_config
     }    
 }

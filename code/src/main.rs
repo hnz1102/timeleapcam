@@ -179,7 +179,6 @@ fn main() -> anyhow::Result<()> {
     // let mut emmc = EMMCHost::new();
     let mut emmc = SDSPIHost::new();
     let mut mount_retry = 0;
-    thread::sleep(Duration::from_millis(100));
     loop {
         match emmc.mount() {
             Ok(_) => { info!("eMMC/SDCard mounted");
@@ -196,7 +195,9 @@ fn main() -> anyhow::Result<()> {
                 }
             }
         }
+        thread::sleep(Duration::from_millis(100));
     }
+    // emmc.format();
     // imagefiles::delete_all_files(Path::new("/eMMC"));
 
     let mut server_info = server::ControlServerInfo::new();
@@ -235,7 +236,9 @@ fn main() -> anyhow::Result<()> {
     server_info.status_report_interval = config_data.status_report_interval;
     server_info.post_interval = config_data.post_interval;
     server_info.capture_frames_at_once = config_data.capture_frames_at_once;
+    server_info.jpeg_quality = config_data.jpeg_quality;
     server_info.overwrite_saved = config_data.overwrite_saved;
+    server_info.direct_write_mode = config_data.direct_write_mode;
     let mut last_status_posted_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_STATUS_POSTED_TIME });
     let mut next_capture_time = UNIX_EPOCH + Duration::from_secs(unsafe { NEXT_CAPTURE_TIME });
     let mut capture_id = unsafe { IMAGE_COUNT_ID };
@@ -351,7 +354,7 @@ fn main() -> anyhow::Result<()> {
         peripherals.pins.gpio47,    // HREF
         peripherals.pins.gpio13,    // PCLK
         xclk,                   // XCLK frequency
-        10,                         // JPEG quality
+        server_info.jpeg_quality as i32, // JPEG quality
         2,                          // Frame buffer count (back to 2 for double buffering)
         camera::camera_grab_mode_t_CAMERA_GRAB_LATEST,        // grab mode
         //camera::camera_grab_mode_t_CAMERA_GRAB_WHEN_EMPTY,    // grab mode
@@ -427,6 +430,8 @@ fn main() -> anyhow::Result<()> {
                 config_data.leap_minute = server_info.leap_time.minute;
                 config_data.capture_frames_at_once = server_info.capture_frames_at_once;
                 config_data.overwrite_saved = server_info.overwrite_saved;
+                config_data.direct_write_mode = server_info.direct_write_mode;
+                config_data.jpeg_quality = server_info.jpeg_quality;
                 let save_config = config_data.get_all_config();
                 let toml_cfg = convert_config_to_toml_string(&save_config);
                 match nvs.set_str("config", toml_cfg.as_str()) {
@@ -488,8 +493,8 @@ fn main() -> anyhow::Result<()> {
         }
         if operating_mode && one_shot {
             server_info.capture_started = true;
-            server.as_mut().unwrap().set_capture_frames_at_once(0);
             capture.set_overwrite_saved(false);
+            server_info.capture_frames_at_once = 0;
         }
     
         if server_info.resolution != current_resolution {
@@ -505,7 +510,9 @@ fn main() -> anyhow::Result<()> {
         }
 
         if server_info.capture_started {
-            log::info!("System Temperature: {:.2}°C", tempval);    
+            log::info!("System Temperature: {:.2}°C", tempval);
+            capture.set_direct_write_mode(server_info.direct_write_mode);
+            capture.set_jpeg_quality(server_info.jpeg_quality);    
             if !capture_indicator_on {
                 // indicator on
                 // led_ind.set_low().expect("Set indicator low failure");

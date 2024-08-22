@@ -36,7 +36,8 @@ const SDSPI_SLOT_CONFIG_CMD: i32 = 9;   // GPIO9 MOSI
 const SDSPI_SLOT_CONFIG_CLK: i32 = 7;   // GPIO7 SCLK
 const SDSPI_SLOT_CONFIG_D0: i32 = 8;    // GPIO8 MISO
 const SDSPI_SLOT_CONFIG_CS: i32 = 21;   // GPIO21 CS
-const VFS_MOUNT_ALLOC_UNIT_SIZE: usize = 16 * 1024;
+
+const VFS_MOUNT_ALLOC_UNIT_SIZE: usize = 32 * 1024;
 
 const MOUNT_POINT : &[u8] = b"/eMMC\0";
 
@@ -228,7 +229,7 @@ impl EMMCHost {
         let mount_config = esp_idf_sys::esp_vfs_fat_sdmmc_mount_config_t {
             format_if_mount_failed: true,
             max_files: 5,
-            allocation_unit_size: 8192,
+            allocation_unit_size: VFS_MOUNT_ALLOC_UNIT_SIZE,
             disk_status_check_enable: false,
         };
 
@@ -245,7 +246,7 @@ impl EMMCHost {
             )
         };
 
-        let mount_point_str = std::str::from_utf8(MOUNT_POINT).unwrap();
+        let mount_point_str = std::str::from_utf8(MOUNT_POINT).unwrap().replace("\0", "");
         match mount_emmc {
             esp_idf_sys::ESP_OK => {
                 info!("eMMC/SD card mounted successfully {}", mount_point_str);

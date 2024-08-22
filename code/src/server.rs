@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+
 use log::info;
 use embedded_svc::http::Method;
 use esp_idf_svc::http::server::{Configuration as HttpServerConfig, EspHttpServer};
@@ -76,6 +78,8 @@ pub struct ControlServerInfo {
     pub capture_frames_at_once: i32,
     pub overwrite_saved: bool,
     pub temperature: f32,
+    pub direct_write_mode: bool,
+    pub jpeg_quality: u32,
 }
 
 impl ControlServerInfo {
@@ -118,6 +122,8 @@ impl ControlServerInfo {
             capture_frames_at_once: 0,
             overwrite_saved: false,
             temperature: 0.0,
+            direct_write_mode: false,
+            jpeg_quality: 12,
         }
     }    
 }
@@ -606,7 +612,6 @@ impl ControlServer {
                 -1 => (r_image.get_nof_images()  - 1) as i32,
                 _ => fromframe,
             };
-            info!("Count: {}", count);
             match r_image.seek_image(count as u32){
                 Ok(_) => (),
                 Err(e) => {
@@ -1075,6 +1080,14 @@ impl ControlServer {
                 }
             };
             server_info.capture_frames_at_once = capture_frames_at_once;
+            // jpeg quality
+            let jpeg_quality = match json["jpegQuality"].as_u64() {
+                Some(jpeg_quality) => jpeg_quality as u32,
+                None => {
+                    12
+                }
+            };
+            server_info.jpeg_quality = jpeg_quality;
             // get overwrite saved
             let overwrite_saved = match json["overwriteSaved"].as_bool() {
                 Some(overwrite_saved) => overwrite_saved,
@@ -1083,6 +1096,14 @@ impl ControlServer {
                 }
             };
             server_info.overwrite_saved = overwrite_saved;
+            // direct_write_mode
+            let direct_write_mode = match json["directWriteMode"].as_bool() {
+                Some(direct_write_mode) => direct_write_mode,
+                None => {
+                    false
+                }
+            };
+            server_info.direct_write_mode = direct_write_mode;
             server_info.need_to_save = true;
             server_info.last_access_time = SystemTime::now();
             let response = request.into_ok_response();
@@ -1096,7 +1117,7 @@ impl ControlServer {
             let response = request.into_ok_response();
             let server_info = server_info_current_config.clone();
             let server_info = server_info.lock().unwrap();
-            let config_json = format!("{{\"resolution\": \"{}\", \"trackid\": {}, \"duration\": {}, \"timezone\": {}, \"idlesleep\": {}, \"autocapture\": {}, \"queryopenai\": {}, \"queryprompt\": \"{}\", \"openai_model\": \"{}\", \"autofocus_once\": {}, \"status_report\": {}, \"status_report_interval\": {}, \"post_interval\": {}, \"leaptime\": {{\"year\": {}, \"month\": {}, \"day\": {}, \"hour\": {}, \"minute\": {} }}, \"captureFramesAtOnce\": {}, \"overwriteSaved\": {}}}",
+            let config_json = format!("{{\"resolution\": \"{}\", \"trackid\": {}, \"duration\": {}, \"timezone\": {}, \"idlesleep\": {}, \"autocapture\": {}, \"queryopenai\": {}, \"queryprompt\": \"{}\", \"openai_model\": \"{}\", \"autofocus_once\": {}, \"status_report\": {}, \"status_report_interval\": {}, \"post_interval\": {}, \"leaptime\": {{\"year\": {}, \"month\": {}, \"day\": {}, \"hour\": {}, \"minute\": {} }}, \"captureFramesAtOnce\": {}, \"overwriteSaved\": {}, \"directWriteMode\": {}, \"jpegQuality\": {}}}",
                                       ACCEPTABLE_RESOLUTIONS.iter()
                                       .find(|(_, value)| value == &server_info.resolution)
                                       .map(|(name, _)| *name).unwrap_or("VGA"),
@@ -1119,6 +1140,8 @@ impl ControlServer {
                                       server_info.leap_time.minute,
                                       server_info.capture_frames_at_once,
                                       server_info.overwrite_saved,
+                                      server_info.direct_write_mode,
+                                      server_info.jpeg_quality,
                                     );
             response?.write_all(config_json.as_bytes())?;
             Ok::<(), EspIOError>(())
@@ -1823,7 +1846,9 @@ function getConfig() {{
             document.getElementById("leaphour").value = config.leaptime.hour;
             document.getElementById("leapminute").value = config.leaptime.minute;
             document.getElementById("captureFramesAtOnce").value = config.captureFramesAtOnce;
+            document.getElementById("jpegQuality").value = config.jpegQuality;
             document.getElementById("OverwriteSaved").checked = config.overwriteSaved;
+            document.getElementById("directWriteMode").checked = config.directWriteMode;
         }}
     }};
     xhttp.open("GET", "/config", true);
@@ -2219,9 +2244,24 @@ fn config_html() -> String {
 
 <div class="clear">
 <div class="left">
+<label for="jpegQuality">JPEG Quality 4(High)-40(Low):</label></div>
+<div class="left">
+<input type="number" id="jpegQuality" value="12">
+</div></div>
+
+<div class="clear">
+<div class="left">
 <label for="OverwriteSaved">Over Write Save:</label></div>
 <div class="left">
 <label class="switch"><input type="checkbox" id="OverwriteSaved">
+<span class="slider"></span></label>
+</div></div>
+
+<div class="clear">
+<div class="left">
+<label for="directWriteMode">Direct Write Mode:</label></div>
+<div class="left">
+<label class="switch"><input type="checkbox" id="directWriteMode">
 <span class="slider"></span></label>
 </div></div>
 
@@ -2244,7 +2284,9 @@ function saveConfig() {{
     var status_report_interval_element = document.getElementById("status_report_interval");
     var post_interval_element = document.getElementById("post_interval");
     var captureFramesAtOnce_element = document.getElementById("captureFramesAtOnce");
+    var jpegQuality_element = document.getElementById("jpegQuality");
     var overwriteSaved_element = document.getElementById("OverwriteSaved");
+    var directWriteMode_element = document.getElementById("directWriteMode");
     var xhr = new XMLHttpRequest();
     xhr.open("POST", "/config", true);
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -2261,7 +2303,9 @@ function saveConfig() {{
         "status_report_interval": status_report_interval_element.value - 0,
         "post_interval": post_interval_element.value - 0,
         "captureFramesAtOnce": captureFramesAtOnce_element.value - 0,
-        "overwriteSaved": overwriteSaved_element.checked
+        "jpegQuality": jpegQuality_element.value - 0,
+        "overwriteSaved": overwriteSaved_element.checked,
+        "directWriteMode": directWriteMode_element.checked,
     }}));
 }}
 
@@ -2283,7 +2327,9 @@ function getConfig() {{
             document.getElementById("status_report_interval").value = config.status_report_interval;
             document.getElementById("post_interval").value = config.post_interval;
             document.getElementById("captureFramesAtOnce").value = config.captureFramesAtOnce;
+            document.getElementById("jpegQuality").value = config.jpegQuality;
             document.getElementById("OverwriteSaved").checked = config.overwriteSaved;
+            document.getElementById("directWriteMode").checked = config.directWriteMode;
         }}
     }};
     xhttp.open("GET", "/config", true);
