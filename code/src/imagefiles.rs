@@ -18,10 +18,17 @@ pub enum OpenMode {
     Append,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum WriteThreadStatus {
+    NotStarted,
+    Running,
+    Stopped,
+}
+
 pub struct WriteImageQueue {
     buffer: Vec<Box<[u8]>>,
     data_size: usize,
-    thread_status: bool,
+    thread_status: WriteThreadStatus,
     write_done: bool,
     images: u32,
     queue_len: usize,
@@ -44,7 +51,7 @@ impl WriteThread {
             write_image_queue: Arc::new(Mutex::new(WriteImageQueue {
                 buffer: Vec::new(),
                 data_size: 0,
-                thread_status: false,
+                thread_status: WriteThreadStatus::NotStarted,
                 write_done: false,
                 images: 0,
                 queue_len: 0,
@@ -87,7 +94,7 @@ impl WriteThread {
             let start_time = std::time::SystemTime::now();
             loop {
                 let mut wiqlk = write_image_queue.lock().unwrap();
-                wiqlk.thread_status = true;
+                wiqlk.thread_status = WriteThreadStatus::Running;
                 if wiqlk.buffer.len() > 0 {
                     let data = wiqlk.buffer.remove(0);
                     let data_size = data.len();
@@ -112,11 +119,13 @@ impl WriteThread {
             let _ = image_file.write_image_end();
             let elapsed_time = start_time.elapsed().unwrap().as_millis();
             let mut qlk = write_image_queue.lock().unwrap();
-            info!("WriteThread Write time: {:?}ms {:.2}MB/s Ave: {:.2}ms", 
-                elapsed_time, qlk.data_size as f32 / elapsed_time as f32 / 1024.0, write_image_time as f32 / data_count as f32 / 1000.0);
             qlk.images = image_file.get_nof_images();
-            qlk.write_done = true;
-            qlk.thread_status = false;
+            info!("WriteThread Write images: {} time: {:?}ms {:.2}MB/s Ave: {:.2}ms",
+                qlk.images, 
+                elapsed_time, 
+                qlk.data_size as f32 / elapsed_time as f32 / 1024.0,
+                write_image_time as f32 / data_count as f32 / 1000.0);
+            qlk.thread_status = WriteThreadStatus::Stopped;
             info!("WriteThread end");
         });
     }
@@ -157,11 +166,6 @@ impl WriteThread {
         info!("Drop Frames: {}", self.drop_frames);
     }
 
-    pub fn is_thread_running(&self) -> bool {
-        let wiqlk = self.write_image_queue.lock().unwrap();
-        wiqlk.thread_status
-    }
-
     pub fn get_nof_images(&self) -> u32 {
         let wiqlk = self.write_image_queue.lock().unwrap();
         wiqlk.images
@@ -170,7 +174,7 @@ impl WriteThread {
     pub fn wait_thread(&self) {
         loop {
             let wiqlk = self.write_image_queue.lock().unwrap();
-            if !wiqlk.thread_status {
+            if wiqlk.thread_status == WriteThreadStatus::Stopped {
                 break;
             }
             drop(wiqlk);
