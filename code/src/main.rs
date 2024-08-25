@@ -232,6 +232,7 @@ fn main() -> anyhow::Result<()> {
     server_info.capture_frames_at_once = config_data.capture_frames_at_once;
     server_info.jpeg_quality = config_data.jpeg_quality;
     server_info.overwrite_saved = config_data.overwrite_saved;
+    server_info.direct_write_mode = config_data.direct_write_mode;
     let mut last_status_posted_time = SystemTime::UNIX_EPOCH + Duration::from_secs(unsafe { LAST_STATUS_POSTED_TIME });
     let mut next_capture_time = UNIX_EPOCH + Duration::from_secs(unsafe { NEXT_CAPTURE_TIME });
     let mut capture_id = unsafe { IMAGE_COUNT_ID };
