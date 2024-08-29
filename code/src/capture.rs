@@ -69,8 +69,12 @@ impl Capture {
             let mut autofocus = AutoFocus::new(&sensor);
             autofocus.init();
             let _ = sensor.set_hmirror(true);
+            let _ = sensor.set_vflip(true);
             autofocus.autofocus_zoneconfig(); 
             // autofocus.autofocus();
+            // after deep sleep, the first capture image is not good, 
+            // so we need to wait for a while before capturing.
+            thread::sleep(Duration::from_millis(3000));
 
             let mut current_status = false;
             loop {
@@ -98,8 +102,6 @@ impl Capture {
                 drop(infolk);
                 if request {
                     info!("Capture Start...");
-                    camera.return_all_framebuffers();
-                    thread::sleep(Duration::from_millis(1000));
                     let mut infolk = info.lock().unwrap();
                     let jpeg_quality = infolk.jpeg_quality as i32;
                     let _ = sensor.set_quality(jpeg_quality);
@@ -108,6 +110,7 @@ impl Capture {
                         autofocus.autofocus();
                         let _autofocus_result = autofocus.get_focus_result();
                     }
+                    camera.return_all_framebuffers();
                     let mut loop_count = 0;
                     infolk.status = false;
                     let filename = format!("{}/T{}/capture.dat", infolk.capture_dir, infolk.track_id);
