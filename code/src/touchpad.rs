@@ -6,7 +6,7 @@ use std::ffi::c_void;
 use log::*;
 
 const MAX_TOUCHPADS: usize = 1;
-const THRESHOLD_PERCENT: f32 = 0.02;
+const THRESHOLD_PERCENT: f32 = 0.01;
 
 static TOUCH_ACTIVE_FLAG: AtomicBool = AtomicBool::new(false);
 
