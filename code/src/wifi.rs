@@ -27,6 +27,17 @@ pub fn wifi_connect<'d> (
     })).unwrap();
 
     wifi.start().unwrap();
+
+    // XIAO ESP32S3 has some issue with the default max tx power(80), so we have to set it to 66.
+    // This is a workaround for the issue. If the default tx power is 80, then the wifi connection will fail.
+    unsafe {
+        let mut default_tx_power : i8 = 0;
+        let _ = esp_idf_sys::esp_wifi_get_max_tx_power(&mut default_tx_power);
+        info!("Max Tx Default Power {}", default_tx_power);
+        let res = esp_idf_sys::esp_wifi_set_max_tx_power(60);
+        info!("Set max tx power to 60, result: 0x{:x}", res);
+    }
+
     wifi.connect()?;
     let mut timeout = 0;
     while !wifi.is_connected().unwrap(){
