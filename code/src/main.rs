@@ -495,13 +495,14 @@ fn main() -> anyhow::Result<()> {
         }
         capture.set_capturing_duration(server_info.capture_frames_at_once);
         let mut tempval : f32 = 0.0;
-        unsafe {
-            esp_idf_svc::hal::sys::temperature_sensor_get_celsius(&mut *temp_sensor_ptr, &mut tempval);
-            server.as_mut().unwrap().set_temperature(tempval);
+        if server_enalbed {
+            unsafe {
+                esp_idf_svc::hal::sys::temperature_sensor_get_celsius(&mut *temp_sensor_ptr, &mut tempval);
+                server.as_mut().unwrap().set_temperature(tempval);
+            }
         }
 
         if server_info.capture_started {
-            log::info!("System Temperature: {:.2}°C", tempval);
             capture.set_direct_write_mode(server_info.direct_write_mode);
             capture.set_jpeg_quality(server_info.jpeg_quality);    
             if !capture_indicator_on {
@@ -536,6 +537,7 @@ fn main() -> anyhow::Result<()> {
             if movie_mode && capture_id == 0 || !movie_mode {
                 // indicator on
                 // led_ind.set_low().expect("Set indicator low failure");
+                log::info!("System Temperature: {:.2}°C", tempval);
                 info!("Capture Started Track ID: {} Count: {} Resolution: {}", current_track_id, capture_id, current_resolution);
                 capture.capture_request(current_track_id, capture_id);
             }
