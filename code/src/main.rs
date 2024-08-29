@@ -460,20 +460,16 @@ fn main() -> anyhow::Result<()> {
         let key_event = touchpad.get_key_event_and_clear();
         for key in key_event {
             match key {
+                KeyEvent::CenterKeyDown => {
+                    server_info.capture_started = true;
+                    server_info.capture_frames_at_once = -1;
+                    movie_mode = true;
+                    server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+                    server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
+                    break;
+                },
                 KeyEvent::CenterKeyUp => {
-                    // millisecond
-                    let push_time = touchpad.get_button_press_time(Key::Center);
-                    if push_time > 3000 {
-                        info!("Long press center key {}", push_time);
-                        server_info.capture_started = true;
-                        server_info.capture_frames_at_once = -1;
-                        movie_mode = true;
-                        server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
-                        server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
-
-                    }
-                    else {
-                        info!("Center key down");
+                        // info!("Center key down");
                         server_info.capture_started = false;
                         server_info.capture_frames_at_once = 0;
                         movie_mode = false;
@@ -481,16 +477,18 @@ fn main() -> anyhow::Result<()> {
                         // led_ind.set_high().expect("Set indicator high failure");
                         server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
                         server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
-                    }
-                    if server_info.duration == 0 && server_info.leap_time.day < 0
-                        && server_info.leap_time.hour < 0 && server_info.leap_time.minute < 0 {
-                        server_info.duration = 90;
-                    }                
+                        break;
                 },
                 _ => {
                 }
-            }
+           }
         }
+
+        if server_info.duration == 0 && server_info.leap_time.day < 0
+            && server_info.leap_time.hour < 0 && server_info.leap_time.minute < 0 {
+            server_info.duration = 90;
+        }                
+
         if operating_mode && one_shot {
             server_info.capture_started = true;
             capture.set_overwrite_saved(false);
@@ -504,13 +502,14 @@ fn main() -> anyhow::Result<()> {
         }
         capture.set_capturing_duration(server_info.capture_frames_at_once);
         let mut tempval : f32 = 0.0;
-        unsafe {
-            esp_idf_svc::hal::sys::temperature_sensor_get_celsius(&mut *temp_sensor_ptr, &mut tempval);
-            server.as_mut().unwrap().set_temperature(tempval);
+        if server_enalbed {
+            unsafe {
+                esp_idf_svc::hal::sys::temperature_sensor_get_celsius(&mut *temp_sensor_ptr, &mut tempval);
+                server.as_mut().unwrap().set_temperature(tempval);
+            }
         }
 
         if server_info.capture_started {
-            log::info!("System Temperature: {:.2}°C", tempval);
             capture.set_direct_write_mode(server_info.direct_write_mode);
             capture.set_jpeg_quality(server_info.jpeg_quality);    
             if !capture_indicator_on {
@@ -545,6 +544,7 @@ fn main() -> anyhow::Result<()> {
             if movie_mode && capture_id == 0 || !movie_mode {
                 // indicator on
                 // led_ind.set_low().expect("Set indicator low failure");
+                log::info!("System Temperature: {:.2}°C", tempval);
                 info!("Capture Started Track ID: {} Count: {} Resolution: {}", current_track_id, capture_id, current_resolution);
                 capture.capture_request(current_track_id, capture_id);
             }
