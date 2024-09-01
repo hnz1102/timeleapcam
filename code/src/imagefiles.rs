@@ -174,6 +174,9 @@ impl WriteThread {
     pub fn wait_thread(&self) {
         loop {
             let wiqlk = self.write_image_queue.lock().unwrap();
+            if self.direct_write_mode {
+                break;
+            }
             if wiqlk.thread_status == WriteThreadStatus::Stopped {
                 break;
             }
