@@ -1846,9 +1846,7 @@ function getConfig() {{
             document.getElementById("leaphour").value = config.leaptime.hour;
             document.getElementById("leapminute").value = config.leaptime.minute;
             document.getElementById("captureFramesAtOnce").value = config.captureFramesAtOnce;
-            document.getElementById("jpegQuality").value = config.jpegQuality;
             document.getElementById("OverwriteSaved").checked = config.overwriteSaved;
-            document.getElementById("directWriteMode").checked = config.directWriteMode;
         }}
     }};
     xhttp.open("GET", "/config", true);
