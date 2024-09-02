@@ -74,7 +74,7 @@ impl Capture {
             // autofocus.autofocus();
             // after deep sleep, the first capture image is not good, 
             // so we need to wait for a while before capturing.
-            thread::sleep(Duration::from_millis(3000));
+            // thread::sleep(Duration::from_millis(3000));
 
             let mut current_status = false;
             loop {
@@ -111,6 +111,7 @@ impl Capture {
                         let _autofocus_result = autofocus.get_focus_result();
                     }
                     camera.return_all_framebuffers();
+                    thread::sleep(Duration::from_millis(1000));
                     let mut loop_count = 0;
                     infolk.status = false;
                     let filename = format!("{}/T{}/capture.dat", infolk.capture_dir, infolk.track_id);
