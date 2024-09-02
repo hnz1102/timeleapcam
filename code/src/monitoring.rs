@@ -115,6 +115,11 @@ impl Monitoring {
                                 continue;
                             }
                         };
+                        unsafe {
+                            let size = esp_idf_sys::esp_get_free_internal_heap_size();
+                            let min_size = esp_idf_sys::esp_get_minimum_free_heap_size();
+                            info!("Free Internal Heap Size: {:?} min free {:?}", size, min_size);
+                        }
                         let result = query_to_openai(openai.api_key.clone(), openai.model.clone(),
                             openai.prompt.clone(), openai.detail.clone(), openai.max_tokens,
                             openai.timeout, &buffer);
@@ -127,6 +132,12 @@ impl Monitoring {
                                 false
                             }
                         };
+                        unsafe {
+                            let size = esp_idf_sys::esp_get_free_internal_heap_size();
+                            let min_size = esp_idf_sys::esp_get_minimum_free_heap_size();
+                            info!("Free Internal Heap Size: {:?} min free {:?}", size, min_size);
+                        }
+
                         // find string in reply
                         let port_trigger = postmsg.post_message_trigger.clone();
                         let found = match openai.reply.find(port_trigger.as_str()) {
@@ -476,7 +487,7 @@ fn post_message(post_url: String, post_to: String, access_token: String, image_u
 // Generate signed URL
 fn generate_signed_url(mut url: Url, key: &str) -> String {
     // Get current UNIX timestamp and add expiration
-    info!("URL: {:?} key:{:?}", url, key);
+    // info!("URL: {:?} key:{:?}", url, key);
     let expiry = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + EXPIRATION;
     url.query_pairs_mut().append_pair("exp", &expiry.to_string());
 
