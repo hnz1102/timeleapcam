@@ -391,6 +391,7 @@ fn main() -> anyhow::Result<()> {
     let mut one_shot = false;
     let mut movie_mode = false;
     let mut capture_indicator_on = false;
+    let mut last_captured_in_the_movie = false;
     loop {
         // imagefiles::list_files(Path::new("/eMMC"));
         if config_data.auto_capture || unsafe { DEEP_SLEEP_AUTO_CAPTURE } {
@@ -470,9 +471,11 @@ fn main() -> anyhow::Result<()> {
                     break;
                 },
                 KeyEvent::CenterKeyUp => {
-                    // info!("Center key down");
                     server_info.capture_started = false;
                     server_info.capture_frames_at_once = 0;
+                    if movie_mode {
+                        last_captured_in_the_movie = true;
+                    }
                     movie_mode = false;
                     // indicator off
                     led_ind.set_low().expect("Set indicator high failure");
@@ -510,7 +513,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        if server_info.capture_started {
+        if server_info.capture_started || last_captured_in_the_movie {
             capture.set_direct_write_mode(server_info.direct_write_mode);
             capture.set_jpeg_quality(server_info.jpeg_quality);    
             if !capture_indicator_on {
@@ -549,7 +552,7 @@ fn main() -> anyhow::Result<()> {
                 info!("Capture Started Track ID: {} Count: {} Resolution: {}", current_track_id, capture_id, current_resolution);
                 capture.capture_request(current_track_id, capture_id);
             }
-            if movie_mode {
+            if movie_mode && !last_captured_in_the_movie {
                 capture_id += 1;
                 thread::sleep(Duration::from_millis(100));
                 continue;
@@ -612,8 +615,15 @@ fn main() -> anyhow::Result<()> {
 
             // indicator off
             led_ind.set_low().expect("Set indicator high failure");
-            capture_indicator_on = false;            
-            
+            capture_indicator_on = false; 
+
+            // in the movie mode, no sleep
+            if last_captured_in_the_movie {
+                last_captured_in_the_movie = false;
+                thread::sleep(Duration::from_millis(100));
+                continue;
+            }
+
             if one_shot {
                 server_info.capture_started = false;
                 capture_id = 0;
