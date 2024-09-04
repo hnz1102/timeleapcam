@@ -195,11 +195,15 @@ pub struct ImageFiles {
     total_copy_time: u128,
     total_write_time: u128,
     write_count: u32,
+    last_image_pos: u64,
 }
 
-const FILE_HEADER: [u8; 16] = ['T' as u8, 'C' as u8, 'A' as u8, 'M' as u8,
+const FILE_HEADER_SIZE: usize = 24;
+const FILE_HEADER: [u8; FILE_HEADER_SIZE] = ['T' as u8, 'C' as u8, 'A' as u8, 'M' as u8,
                                0, 0, 0, 0,                  // Total number of images
-                               0, 0, 0, 0, 0, 0, 0, 0];     // Total size of images
+                               0, 0, 0, 0, 0, 0, 0, 0,      // Total size of images
+                               0, 0, 0, 0, 0, 0, 0, 0,      // Last Image Offset
+                               ];
 
 impl ImageFiles {
     pub fn new(directory: impl AsRef<Path>, mode: OpenMode) -> Result<ImageFiles, anyhow::Error> {
@@ -222,10 +226,11 @@ impl ImageFiles {
         };
         match file {
             Ok(mut file) => {
-                let mut header : [u8; 16] = [0; 16];
+                let mut header : [u8; FILE_HEADER_SIZE] = [0; FILE_HEADER_SIZE];
                 let _ = file.read(&mut header);
                 let total_size : u64;
                 let mut nimages : u32 = 0;
+                let mut last_image_pos : u64 = 0;
                 if mode == OpenMode::Write {
                     // renew the file header
                     let _ = file.seek(std::io::SeekFrom::Start(0));
@@ -273,6 +278,21 @@ impl ImageFiles {
                             n
                         },
                     };
+                    last_image_pos = match renew_header {
+                        true => 0,
+                        false => {
+                            let pos = 
+                                (header[16] as u64) +
+                                ((header[17] as u64) << 8) +
+                                ((header[18] as u64) << 16) +
+                                ((header[19] as u64) << 24) +
+                                ((header[20] as u64) << 32) +
+                                ((header[21] as u64) << 40) +
+                                ((header[22] as u64) << 48) +
+                                ((header[23] as u64) << 56);
+                            pos
+                        },
+                    };
                 }
                 let read_pos = FILE_HEADER.len() as u64;
                 let write_pos = match mode {
@@ -288,6 +308,7 @@ impl ImageFiles {
                     total_copy_time: 0,
                     total_write_time: 0,
                     write_count: 0,
+                    last_image_pos: last_image_pos,
                 })
             }
             Err(e) => {
@@ -337,6 +358,7 @@ impl ImageFiles {
             ((size >> 16) & 0xFF) as u8,
             ((size >> 24) & 0xFF) as u8,
         ];
+        let save_write_pos = self.write_pos;
         self.file.seek(std::io::SeekFrom::Start(self.write_pos))?;
         self.file.write(&header)?;
         // Write the image data
@@ -380,6 +402,7 @@ impl ImageFiles {
         self.write_count += 1;
         self.write_pos += (size + IMAGE_HEADER_SIZE) as u64;
         self.total_size += (size + IMAGE_HEADER_SIZE) as u64;
+        self.last_image_pos = save_write_pos;
         self.nimages += 1;
         Ok(())
     }
@@ -418,6 +441,17 @@ impl ImageFiles {
             ((self.total_size >> 56) & 0xFF) as u8,
         ]; 
         self.file.write(&file_size_header)?;
+        let file_last_image_pos_header : [u8; 8 ] = [
+            (self.last_image_pos & 0xFF) as u8,
+            ((self.last_image_pos >> 8) & 0xFF) as u8,
+            ((self.last_image_pos >> 16) & 0xFF) as u8,
+            ((self.last_image_pos >> 24) & 0xFF) as u8,
+            ((self.last_image_pos >> 32) & 0xFF) as u8,
+            ((self.last_image_pos >> 40) & 0xFF) as u8,
+            ((self.last_image_pos >> 48) & 0xFF) as u8,
+            ((self.last_image_pos >> 56) & 0xFF) as u8,
+        ];
+        self.file.write(&file_last_image_pos_header)?;
         info!("WriteThread Ave Copy time: {:.2}ms Ave Write time: {:.2}ms", 
             self.total_copy_time as f32 / self.write_count as f32 / 1000.0, 
             self.total_write_time as f32 / self.write_count as f32 / 1000.0);
@@ -482,6 +516,10 @@ impl ImageFiles {
     }
 
     pub fn seek_image(&mut self, from_frame: u32) -> Result<(), anyhow::Error> {
+        if from_frame == self.nimages - 1 {
+            self.read_pos = self.last_image_pos;
+            return Ok(());
+        }
         for _ in 0..from_frame {
             let size = self.get_image_size();
             if size == 0 {
