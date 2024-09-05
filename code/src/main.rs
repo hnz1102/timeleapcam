@@ -85,7 +85,8 @@ fn main() -> anyhow::Result<()> {
     // eMMC and Camera Power On (low active)
     let mut emmc_cam_power = PinDriver::output(peripherals.pins.gpio44).unwrap();
     emmc_cam_power.set_low().expect("Set emmc_cam_power low failure");
-
+    let mut led_ind = PinDriver::output(peripherals.pins.gpio43).unwrap();
+    led_ind.set_high().expect("Set indicator high failure");
     // TouchPad
     let mut touchpad = TouchPad::new();
     touchpad.start();
@@ -331,20 +332,20 @@ fn main() -> anyhow::Result<()> {
         false => 25000000,
     };
     let cam = Camera::new(
-        peripherals.pins.gpio48,    // XCLK
-        peripherals.pins.gpio42,    // SIOD
-        peripherals.pins.gpio41,    // SIOC
-        peripherals.pins.gpio11,    // Y2
-        peripherals.pins.gpio18,    // Y3
-        peripherals.pins.gpio17,    // Y4
-        peripherals.pins.gpio10,    // Y5
-        peripherals.pins.gpio12,    // Y6
-        peripherals.pins.gpio14,    // Y7
-        peripherals.pins.gpio47,    // Y8
-        peripherals.pins.gpio38,    // Y9
-        peripherals.pins.gpio40,    // VSYNC
-        peripherals.pins.gpio39,    // HREF
-        peripherals.pins.gpio13,    // PCLK
+        peripherals.pins.gpio21,    // XCLK
+        peripherals.pins.gpio39,    // SIOD
+        peripherals.pins.gpio38,    // SIOC
+        peripherals.pins.gpio10,    // Y2
+        peripherals.pins.gpio46,    // Y3
+        peripherals.pins.gpio3,     // Y4
+        peripherals.pins.gpio9,     // Y5
+        peripherals.pins.gpio11,    // Y6
+        peripherals.pins.gpio13,    // Y7
+        peripherals.pins.gpio14,    // Y8
+        peripherals.pins.gpio47,    // Y9
+        peripherals.pins.gpio45,    // VSYNC
+        peripherals.pins.gpio48,    // HREF
+        peripherals.pins.gpio12,    // PCLK
         xclk,                       // XCLK frequency
         server_info.jpeg_quality as i32,   // JPEG quality
         2,                          // Frame buffer count (back to 2 for double buffering)
@@ -379,7 +380,7 @@ fn main() -> anyhow::Result<()> {
         server.as_mut().unwrap().set_server_info(server_info.clone());
     }
 
-    // led_ind.set_high().expect("Set indicator high failure");
+    led_ind.set_low().expect("Set indicator high failure");
     let mut one_shot = false;
     let mut movie_mode = false;
     let mut capture_indicator_on = false;
@@ -459,6 +460,7 @@ fn main() -> anyhow::Result<()> {
                         server_info.capture_started = true;
                         server_info.capture_frames_at_once = -1;
                         movie_mode = true;
+                        led_ind.set_high().expect("Set indicator high failure");
                         server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
                         server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
 
@@ -469,7 +471,7 @@ fn main() -> anyhow::Result<()> {
                         server_info.capture_frames_at_once = 0;
                         movie_mode = false;
                         // indicator off
-                        // led_ind.set_high().expect("Set indicator high failure");
+                        led_ind.set_low().expect("Set indicator high failure");
                         server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
                         server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
                     }
@@ -507,11 +509,11 @@ fn main() -> anyhow::Result<()> {
             capture.set_jpeg_quality(server_info.jpeg_quality);    
             if !capture_indicator_on {
                 // indicator on
-                // led_ind.set_low().expect("Set indicator low failure");
+                led_ind.set_high().expect("Set indicator low failure");
                 capture_indicator_on = true;
             }
             else {
-                // led_ind.set_high().expect("Set indicator high failure");
+                led_ind.set_low().expect("Set indicator high failure");
                 capture_indicator_on = false;
             }
             if current_track_id != server_info.track_id {
@@ -536,7 +538,7 @@ fn main() -> anyhow::Result<()> {
             }
             if movie_mode && capture_id == 0 || !movie_mode {
                 // indicator on
-                // led_ind.set_low().expect("Set indicator low failure");
+                led_ind.set_high().expect("Set indicator low failure");
                 log::info!("System Temperature: {:.2}°C", tempval);
                 info!("Capture Started Track ID: {} Count: {} Resolution: {}", current_track_id, capture_id, current_resolution);
                 capture.capture_request(current_track_id, capture_id);
@@ -603,8 +605,8 @@ fn main() -> anyhow::Result<()> {
             }
 
             // indicator off
-            // led_ind.set_high().expect("Set indicator high failure");
-            capture_indicator_on = false;            
+            led_ind.set_low().expect("Set indicator high failure");
+            capture_indicator_on = false; 
             
             if one_shot {
                 server_info.capture_started = false;
