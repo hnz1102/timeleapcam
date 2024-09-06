@@ -16,7 +16,10 @@ pub fn wifi_connect<'d> (
     ssid: &'d str,
     pass: &'d str,
 ) -> Result<Box<EspWifi<'d>>> {
-  
+
+    if ssid.is_empty() || pass.is_empty() {
+        bail!("SSID or password is empty");
+    }
     let sys_event_loop = EspSystemEventLoop::take().unwrap();
     let mut wifi = Box::new(EspWifi::new(modem, sys_event_loop.clone(), None).unwrap());
 
@@ -29,14 +32,19 @@ pub fn wifi_connect<'d> (
     wifi.start().unwrap();
     wifi.connect()?;
     let mut timeout = 0;
-    while !wifi.is_connected().unwrap(){
+    loop {
+        if wifi.is_connected().unwrap(){
+            info!("Wifi connected");
+            break;
+        }
         thread::sleep(Duration::from_secs(1));
         timeout += 1;
         if timeout > 30 {
-            bail!("Wifi could not be connected.");
+            info!("Wifi could not be connected.");
+            // wifi could not be connected, but we can use the wifi object to reconnect
+            break;
         }
     }
-    info!("Wifi connected");
     Ok(wifi)
 }
 

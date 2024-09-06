@@ -256,69 +256,80 @@ fn main() -> anyhow::Result<()> {
 
     // wifi initialize
     let mut wifi_dev : Result<Box<EspWifi>, anyhow::Error> = Result::Err(anyhow::anyhow!("WiFi not connected"));
-    let mut server_enalbed = false;
+    let mut server_enabled = false;
     let mut server : Option<server::ControlServer> = match operating_mode || config_data.query_openai || status_post_need {
         true => {
             wifi_dev = wifi::wifi_connect(peripherals.modem, &config_data.wifi_ssid, &config_data.wifi_psk);
             match &wifi_dev {
-                Ok(_) => { info!("WiFi connected"); },
-                Err(ref e) => { info!("{:?}", e); }
-            }
-            let rssi = wifi::get_rssi();
-            info!("RSSI: {}dBm", rssi);
-            // ssid
-            let ssid = config_data.wifi_ssid.clone();
-            info!("Connected SSID: {:?}", ssid);
-            // Get my IP address
-            let mut ip_addr : Ipv4Addr; 
-            loop {
-                ip_addr = wifi_dev.as_ref().unwrap().sta_netif().get_ip_info().unwrap().ip;
-                if ip_addr != Ipv4Addr::new(0, 0, 0, 0) {
-                    break;
-                }
-                info!("Waiting for WiFi connection...");
-                thread::sleep(Duration::from_secs(1));
-            }
-            info!("My IP address: {}", ip_addr);
+                Ok(_) => { 
+                    info!("WiFi connected"); 
+                    let rssi = wifi::get_rssi();
+                    info!("RSSI: {}dBm", rssi);
+                    if rssi != 0 {
+                        // ssid
+                        let ssid = config_data.wifi_ssid.clone();
+                        info!("Connected SSID: {:?}", ssid);
+                        // Get my IP address
+                        let mut ip_addr : Ipv4Addr; 
+                        loop {
+                            ip_addr = wifi_dev.as_ref().unwrap().sta_netif().get_ip_info().unwrap().ip;
+                            if ip_addr != Ipv4Addr::new(0, 0, 0, 0) {
+                                break;
+                            }
+                            info!("Waiting for WiFi connection...");
+                            thread::sleep(Duration::from_secs(1));
+                        }
+                        info!("My IP address: {}", ip_addr);
+                        
+                        // NTP Server
+                        let sntp_conf = SntpConf {
+                            servers: ["time.aws.com",
+                                        "time.google.com",
+                                        "time.cloudflare.com",
+                                        "ntp.nict.jp"],
+                            operating_mode: OperatingMode::Poll,
+                            sync_mode: SyncMode::Immediate,
+                        };
+                        let ntp = EspSntp::new(&sntp_conf).unwrap();
             
-            // NTP Server
-            let sntp_conf = SntpConf {
-                servers: ["time.aws.com",
-                            "time.google.com",
-                            "time.cloudflare.com",
-                            "ntp.nict.jp"],
-                operating_mode: OperatingMode::Poll,
-                sync_mode: SyncMode::Immediate,
-            };
-            let ntp = EspSntp::new(&sntp_conf).unwrap();
-
-            // NTP Sync
-            // let now = SystemTime::now();
-            // if now.duration_since(UNIX_EPOCH).unwrap().as_millis() < 1700000000 {
-            info!("NTP Sync Start..");
-            // wait for sync
-            while ntp.get_sync_status() != SyncStatus::Completed {
-                thread::sleep(Duration::from_millis(10));
+                        // NTP Sync
+                        // let now = SystemTime::now();
+                        // if now.duration_since(UNIX_EPOCH).unwrap().as_millis() < 1700000000 {
+                        info!("NTP Sync Start..");
+                        // wait for sync
+                        while ntp.get_sync_status() != SyncStatus::Completed {
+                            thread::sleep(Duration::from_millis(10));
+                        }
+                        let now = SystemTime::now();
+                        let dt_now : DateTime<Utc> = now.into();
+                        let formatted = format!("{}", dt_now.format("%Y-%m-%d %H:%M:%S"));
+                        info!("NTP Sync Completed: {}", formatted);
+            
+                        // HTTP Server
+                        let mut server = match server::ControlServer::new(&server_info) {
+                            Ok(server_ctx) => {
+                                info!("HTTP Server started");
+                                server_ctx
+                            }
+                            Err(e) => {
+                                info!("Failed to start HTTP Server: {:?}", e);
+                                return Result::Err(anyhow::anyhow!("Failed to start HTTP Server"));
+                            }
+                        };
+                        server.start();
+                        server_enabled = true;        
+                        Some(server)
+                    }
+                    else {
+                        info!("WiFi not connected");
+                        None
+                    }
+                },
+                Err(ref e) => {
+                    info!("{:?}", e);
+                    None 
+                }
             }
-            let now = SystemTime::now();
-            let dt_now : DateTime<Utc> = now.into();
-            let formatted = format!("{}", dt_now.format("%Y-%m-%d %H:%M:%S"));
-            info!("NTP Sync Completed: {}", formatted);
-
-            // HTTP Server
-            let mut server = match server::ControlServer::new(&server_info) {
-                Ok(server_ctx) => {
-                    info!("HTTP Server started");
-                    server_ctx
-                }
-                Err(e) => {
-                    info!("Failed to start HTTP Server: {:?}", e);
-                    return Result::Err(anyhow::anyhow!("Failed to start HTTP Server"));
-                }
-            };
-            server.start();
-            server_enalbed = true;
-            Some(server)
         },
         false => {
             None
@@ -376,13 +387,16 @@ fn main() -> anyhow::Result<()> {
         unsafe { DEEP_SLEEP_AUTO_CAPTURE = false; }
         config_data.auto_capture = false;
         server_info.last_access_time = SystemTime::now();
-        server.as_mut().unwrap().set_server_info(server_info.clone());
+        if server_enabled {
+            server.as_mut().unwrap().set_server_info(server_info.clone());
+        }
     }
 
     // led_ind.set_high().expect("Set indicator high failure");
     let mut one_shot = false;
     let mut movie_mode = false;
     let mut capture_indicator_on = false;
+    let mut last_reconnect_time = SystemTime::now();
     loop {
         // imagefiles::list_files(Path::new("/eMMC"));
         if config_data.auto_capture || unsafe { DEEP_SLEEP_AUTO_CAPTURE } {
@@ -394,46 +408,50 @@ fn main() -> anyhow::Result<()> {
         if operating_mode {
             let rssi = wifi::get_rssi();
             if rssi == 0 {
-                wifi_reconnect(&mut wifi_dev.as_mut().unwrap());
-            }
-            server.as_mut().unwrap().set_current_rssi(rssi);
-            server.as_mut().unwrap().set_current_battery_voltage(battery_voltage);
-            server_info = server.as_mut().unwrap().get_server_info().clone();
-
-            // check save config
-            if server_info.need_to_save {
-                server_info.need_to_save = false;
-                config_data.auto_capture = server_info.auto_capture;
-                config_data.duration = server_info.duration;
-                config_data.resolution = server_info.resolution;
-                config_data.track_id = server_info.track_id;
-                config_data.timezone_offset = server_info.timezone;
-                config_data.idle_in_sleep_time = server_info.idle_in_sleep_time;
-                config_data.query_openai = server_info.query_openai;
-                config_data.query_prompt = server_info.query_prompt.clone();
-                config_data.model = server_info.openai_model.clone();
-                config_data.autofocus_once = server_info.autofocus_once;
-                config_data.status_report = server_info.status_report;
-                config_data.status_report_interval = server_info.status_report_interval;
-                config_data.post_interval = server_info.post_interval;
-                config_data.leap_day = server_info.leap_time.day;
-                config_data.leap_hour = server_info.leap_time.hour;
-                config_data.leap_minute = server_info.leap_time.minute;
-                config_data.capture_frames_at_once = server_info.capture_frames_at_once;
-                config_data.overwrite_saved = server_info.overwrite_saved;
-                config_data.direct_write_mode = server_info.direct_write_mode;
-                config_data.jpeg_quality = server_info.jpeg_quality;
-                let save_config = config_data.get_all_config();
-                let toml_cfg = convert_config_to_toml_string(&save_config);
-                match nvs.set_str("config", toml_cfg.as_str()) {
-                    Ok(_) => { info!("Save config"); },
-                    Err(ref e) => { info!("Set default config failed {:?}", e); }
+                if  last_reconnect_time.elapsed().unwrap().as_secs() > 30 {
+                    last_reconnect_time = SystemTime::now();
+                    wifi_reconnect(&mut wifi_dev.as_mut().unwrap());
                 }
-                server.as_mut().unwrap().set_server_info(server_info.clone());
             }
-            one_shot = server.as_mut().unwrap().get_one_shot();
+            if server_enabled {
+                server.as_mut().unwrap().set_current_rssi(rssi);
+                server.as_mut().unwrap().set_current_battery_voltage(battery_voltage);
+                server_info = server.as_mut().unwrap().get_server_info().clone();
+                one_shot = server.as_mut().unwrap().get_one_shot();
+                // check save config
+                if server_info.need_to_save {
+                    server_info.need_to_save = false;
+                    config_data.auto_capture = server_info.auto_capture;
+                    config_data.duration = server_info.duration;
+                    config_data.resolution = server_info.resolution;
+                    config_data.track_id = server_info.track_id;
+                    config_data.timezone_offset = server_info.timezone;
+                    config_data.idle_in_sleep_time = server_info.idle_in_sleep_time;
+                    config_data.query_openai = server_info.query_openai;
+                    config_data.query_prompt = server_info.query_prompt.clone();
+                    config_data.model = server_info.openai_model.clone();
+                    config_data.autofocus_once = server_info.autofocus_once;
+                    config_data.status_report = server_info.status_report;
+                    config_data.status_report_interval = server_info.status_report_interval;
+                    config_data.post_interval = server_info.post_interval;
+                    config_data.leap_day = server_info.leap_time.day;
+                    config_data.leap_hour = server_info.leap_time.hour;
+                    config_data.leap_minute = server_info.leap_time.minute;
+                    config_data.capture_frames_at_once = server_info.capture_frames_at_once;
+                    config_data.overwrite_saved = server_info.overwrite_saved;
+                    config_data.direct_write_mode = server_info.direct_write_mode;
+                    config_data.jpeg_quality = server_info.jpeg_quality;
+                    let save_config = config_data.get_all_config();
+                    let toml_cfg = convert_config_to_toml_string(&save_config);
+                    match nvs.set_str("config", toml_cfg.as_str()) {
+                        Ok(_) => { info!("Save config"); },
+                        Err(ref e) => { info!("Set default config failed {:?}", e); }
+                    }
+                    server.as_mut().unwrap().set_server_info(server_info.clone());
+                }
+                server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+            }
             current_duration = server_info.duration;
-            server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
             if !server_info.capture_started {
                 // when idle, check last access time
                 if server_info.last_access_time.duration_since(UNIX_EPOCH).unwrap().as_millis() > 1700000000 {
@@ -459,9 +477,10 @@ fn main() -> anyhow::Result<()> {
                         server_info.capture_started = true;
                         server_info.capture_frames_at_once = -1;
                         movie_mode = true;
-                        server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
-                        server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
-
+                        if server_enabled {
+                            server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+                            server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
+                        }
                     }
                     else {
                         info!("Center key down");
@@ -470,8 +489,10 @@ fn main() -> anyhow::Result<()> {
                         movie_mode = false;
                         // indicator off
                         // led_ind.set_high().expect("Set indicator high failure");
-                        server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
-                        server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
+                        if server_enabled {
+                            server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
+                            server.as_mut().unwrap().set_capture_frames_at_once(server_info.capture_frames_at_once);
+                        }
                     }
                     if server_info.duration == 0 && server_info.leap_time.day < 0
                         && server_info.leap_time.hour < 0 && server_info.leap_time.minute < 0 {
@@ -495,7 +516,7 @@ fn main() -> anyhow::Result<()> {
         }
         capture.set_capturing_duration(server_info.capture_frames_at_once);
         let mut tempval : f32 = 0.0;
-        if server_enalbed {
+        if server_enabled {
             unsafe {
                 esp_idf_svc::hal::sys::temperature_sensor_get_celsius(&mut *temp_sensor_ptr, &mut tempval);
                 server.as_mut().unwrap().set_temperature(tempval);
@@ -568,7 +589,9 @@ fn main() -> anyhow::Result<()> {
                 }
                 if monitoring_thread.get_posted_status() {
                     server_info.last_posted_date_time = SystemTime::now();
-                    server.as_mut().unwrap().set_last_posted_date_time(server_info.last_posted_date_time);
+                    if server_enabled {
+                        server.as_mut().unwrap().set_last_posted_date_time(server_info.last_posted_date_time);
+                    }
                     monitoring_thread.set_last_posted_date_time(server_info.last_posted_date_time, server_info.post_interval);
                 }
             }
@@ -594,7 +617,7 @@ fn main() -> anyhow::Result<()> {
                     last_status_posted_time = SystemTime::now();
                 }    
                 server_info.last_capture_date_time = SystemTime::now();
-                if server_enalbed {
+                if server_enabled {
                     server.as_mut().unwrap().set_last_capture_date_time(server_info.last_capture_date_time);
                 }
                 server_info.current_capture_id = capture_id;
@@ -609,7 +632,9 @@ fn main() -> anyhow::Result<()> {
             if one_shot {
                 server_info.capture_started = false;
                 capture_id = 0;
-                server.as_mut().unwrap().set_one_shot_completed();
+                if server_enabled {
+                    server.as_mut().unwrap().set_one_shot_completed();
+                }
                 thread::sleep(Duration::from_millis(100));
                 continue;
             }
@@ -625,7 +650,7 @@ fn main() -> anyhow::Result<()> {
                 None => {
                     info!("Capture end");
                     server_info.capture_started = false;
-                    if server_enalbed {
+                    if server_enabled {
                         server.as_mut().unwrap().set_server_capture_started(server_info.capture_started);
                     }
                     capture_id = 0;
@@ -863,7 +888,17 @@ fn wifi_reconnect(wifi_dev: &mut EspWifi) -> bool{
         esp_idf_sys::esp_wifi_start();
     }
     match wifi_dev.connect() {
-        Ok(_) => { info!("Wifi connected"); true},
+        Ok(_) => { 
+            let rssi = wifi::get_rssi();
+            if rssi != 0 {
+                info!("WiFi connected RSSI: {}dBm", rssi);
+                return true;
+            }
+            else {
+                info!("WiFi not connected");
+                return false;
+            }
+        },
         Err(ref e) => { info!("{:?}", e); false }
     }
 }
